@@ -1,0 +1,70 @@
+@import "tailwindcss";
+@import "@radix-ui/themes/styles.css";
+
+:root {
+  --background: #f8f8f7;
+  --foreground: #202020;
+  --card: #ffffff;
+  --card-foreground: #202020;
+  --popover: #ffffff;
+  --popover-foreground: #202020;
+  --muted: #f1f1ef;
+  --muted-foreground: #787774;
+  --border: #e5e5e2;
+  --input: #dededb;
+  --primary: #5b55e7;
+  --primary-foreground: #ffffff;
+  --secondary: #efeffc;
+  --secondary-foreground: #4842b8;
+  --accent: #f1f1ef;
+  --accent-foreground: #202020;
+  --destructive: #e5484d;
+  --ring: #6d5dfc;
+  --chart-1: #635bff;
+  --chart-2: #10b981;
+  --chart-3: #0ea5e9;
+  --chart-4: #f59e0b;
+  --sidebar: #fbfbfa;
+  --sidebar-muted: #787774;
+  --sidebar-border: #e7e7e4;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-dm-sans);
+  --font-mono: var(--font-space-grotesk);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-dm-sans), sans-serif;
+  letter-spacing: 0;
+  background-image: none;
+}
+
+* {
+  scrollbar-color: rgb(100 116 139 / 0.4) transparent;
+  scrollbar-width: thin;
+}
+
+::selection {
+  background: rgb(99 91 255 / 0.2);
+}
