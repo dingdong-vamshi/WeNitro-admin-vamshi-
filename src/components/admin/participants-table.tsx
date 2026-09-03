@@ -15,13 +15,17 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const statusVariant: Record<EventParticipantStatus, "success" | "secondary" | "danger"> = {
+const statusVariant: Record<EventParticipantStatus, "success" | "secondary" | "warning" | "danger"> = {
+  approved: "success",
   confirmed: "success",
+  pending: "warning",
   waitlist: "secondary",
+  rejected: "danger",
+  left: "secondary",
   cancelled: "danger",
 };
 
-const allStatuses: Array<EventParticipantStatus | "all"> = ["all", "confirmed", "waitlist", "cancelled"];
+const allStatuses: Array<EventParticipantStatus | "all"> = ["all", "approved", "confirmed", "pending", "waitlist", "rejected", "left", "cancelled"];
 
 export function ParticipantsTable({ eventId }: { eventId: string }) {
   const [search, setSearch] = useState("");
@@ -77,7 +81,7 @@ export function ParticipantsTable({ eventId }: { eventId: string }) {
             <TableRow className="bg-muted/30">
               <TableHead>Participant</TableHead>
               <TableHead>Username</TableHead>
-              <TableHead>Joined Date</TableHead>
+              <TableHead>Participation Date</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>

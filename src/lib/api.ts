@@ -56,9 +56,17 @@ function statusOf(event: EventRow): A.EventStatus {
   return "upcoming";
 }
 function participantStatus(value: string): A.EventParticipantStatus {
-  if (["approved", "confirmed", "going"].includes(value.toLowerCase())) return "confirmed";
-  if (["pending", "waitlist", "interested"].includes(value.toLowerCase())) return "waitlist";
+  const status = value.toLowerCase();
+  if (status === "approved") return "approved";
+  if (["confirmed", "going"].includes(status)) return "confirmed";
+  if (["pending", "requested"].includes(status)) return "pending";
+  if (["waitlist", "interested"].includes(status)) return "waitlist";
+  if (["rejected", "declined"].includes(status)) return "rejected";
+  if (status === "left") return "left";
   return "cancelled";
+}
+function isApprovedParticipant(row: ParticipantRow) {
+  return ["approved", "confirmed", "going"].includes(row.status.toLowerCase());
 }
 function reasonOf(value: string): A.ReportReason {
   const text = value.toLowerCase();
@@ -141,7 +149,7 @@ function userCounts(eventRows: EventRow[], participantRows: ParticipantRow[]) {
   const hosted = new Map<number, number>();
   const joined = new Map<number, number>();
   eventRows.forEach((row) => hosted.set(row.created_by, (hosted.get(row.created_by) ?? 0) + 1));
-  participantRows.forEach((row) => joined.set(row.user_id, (joined.get(row.user_id) ?? 0) + 1));
+  participantRows.filter(isApprovedParticipant).forEach((row) => joined.set(row.user_id, (joined.get(row.user_id) ?? 0) + 1));
   return { hosted, joined };
 }
 function mapUser(row: UserRow, hosted: Map<number, number>, joined: Map<number, number>): A.User {
@@ -169,7 +177,7 @@ export async function getDashboardSnapshot(range: A.DashboardRange = "30d"): Pro
   check("Unable to load vibe summary", vibes.error); check("Unable to load community summary", communities.error);
   check("Unable to load story summary", stories.error); check("Unable to load verification summary", verifications.error);
   const userMap = new Map(userRows.map((row) => [row.id, row]));
-  const counts = new Map<number, number>(); participantRows.forEach((row) => counts.set(row.event_id, (counts.get(row.event_id) ?? 0) + 1));
+  const counts = new Map<number, number>(); participantRows.filter(isApprovedParticipant).forEach((row) => counts.set(row.event_id, (counts.get(row.event_id) ?? 0) + 1));
   const mapped = eventRows.map((row) => mapEvent(row, userMap, counts, categoryMap));
   const reportCount = reportRows[0].length + reportRows[1].length;
   const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -215,7 +223,7 @@ export async function getUsers(params?: { search?: string; status?: A.UserStatus
 }
 export async function getEvents(params?: { status?: A.EventStatus | "all"; search?: string; category?: string; city?: string; page?: number; pageSize?: number }): Promise<{ rows: A.Event[]; total: number }> {
   const [eventRows, userRows, participantRows, categoryMap] = await Promise.all([events(), users(), participants(), categories()]);
-  const userMap = new Map(userRows.map((row) => [row.id, row])); const counts = new Map<number, number>(); participantRows.forEach((row) => counts.set(row.event_id, (counts.get(row.event_id) ?? 0) + 1));
+  const userMap = new Map(userRows.map((row) => [row.id, row])); const counts = new Map<number, number>(); participantRows.filter(isApprovedParticipant).forEach((row) => counts.set(row.event_id, (counts.get(row.event_id) ?? 0) + 1));
   const search = params?.search?.toLowerCase().trim() ?? "";
   const rows = eventRows.map((row) => mapEvent(row, userMap, counts, categoryMap)).filter((row) => (!search || [row.id, row.title, row.host].some((value) => value.toLowerCase().includes(search))) && (!params?.status || params.status === "all" || row.status === params.status) && (!params?.category || params.category === "all" || row.category === params.category) && (!params?.city || params.city === "all" || row.city === params.city));
   return { rows: paginate(rows, params?.page ?? 1, params?.pageSize ?? 5), total: rows.length };
@@ -226,7 +234,7 @@ export async function getReports(): Promise<A.ReportItem[]> {
 }
 export async function getMonetization(): Promise<A.RevenuePoint[]> { return []; }
 export async function getAnalytics() {
-  const [userRows, eventRows, participantRows] = await Promise.all([users(), events(), participants()]); const counts = new Map<number, number>(); participantRows.forEach((row) => counts.set(row.event_id, (counts.get(row.event_id) ?? 0) + 1)); const userMap = new Map(userRows.map((row) => [row.id, row]));
+  const [userRows, eventRows, participantRows] = await Promise.all([users(), events(), participants()]); const counts = new Map<number, number>(); participantRows.filter(isApprovedParticipant).forEach((row) => counts.set(row.event_id, (counts.get(row.event_id) ?? 0) + 1)); const userMap = new Map(userRows.map((row) => [row.id, row]));
   return { growth: buckets("30d").map(({ label, end }) => ({ label, users: userRows.filter((row) => new Date(dateValue(row.create_at)) <= end).length, events: eventRows.filter((row) => new Date(dateValue(row.created_at)) <= end).length, revenue: 0 })), topEvents: eventRows.sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0)).slice(0, 5).map((row) => ({ id: String(row.id), title: row.title, engagementScore: counts.get(row.id) ?? 0, city: row.display_location || row.location || "Not provided" })), hostPerformance: Array.from(new Set(eventRows.map((row) => row.created_by))).map((id) => ({ host: userMap.get(id)?.fullname || `User ${id}`, rating: userMap.get(id)?.rating ?? 0, hostedEvents: eventRows.filter((row) => row.created_by === id).length })), geoInsights: [] as A.GeoInsight[] };
 }
 export async function getNotificationCampaigns(): Promise<A.NotificationCampaign[]> { return []; }
@@ -248,11 +256,11 @@ export async function getBlockedUsers(): Promise<A.UserProfile[]> { return []; }
 export async function getSuspendedUsers(): Promise<A.UserProfile[]> { const rows = (await users()).filter((row) => row.is_active === 0 && row.is_delete !== 1); const profiles = await Promise.all(rows.map((row) => getUserProfile(String(row.id)))); return profiles.filter((row): row is A.UserProfile => row !== null); }
 export async function getEventDetail(id: string): Promise<A.EventDetail | null> {
   const numericId = Number(id); if (!Number.isInteger(numericId)) return null; const [eventRows, userRows, participantRows, categoryMap] = await Promise.all([events(), users(), participants(), categories()]); const event = eventRows.find((row) => row.id === numericId); if (!event) return null;
-  const counts = new Map([[numericId, participantRows.filter((row) => row.event_id === numericId).length]]); const mapped = mapEvent(event, new Map(userRows.map((row) => [row.id, row])), counts, categoryMap); let photos = 0; let videos = 0;
+  const counts = new Map([[numericId, participantRows.filter((row) => row.event_id === numericId && isApprovedParticipant(row)).length]]); const mapped = mapEvent(event, new Map(userRows.map((row) => [row.id, row])), counts, categoryMap); let photos = 0; let videos = 0;
   if (Array.isArray(event.media)) event.media.forEach((item) => { const type = typeof item === "object" && item !== null && "type" in item ? String(item.type) : ""; if (type.includes("video")) videos += 1; else photos += 1; });
   return { ...mapped, hostId: String(event.created_by), description: event.description ?? "", isFeatured: false, createdAt: dateValue(event.created_at), mediaCount: { photos, videos }, maxAttendees: event.max_participants ?? 0, location: event.display_location || event.location || "Not provided", startTime: mapped.startTime ?? "" };
 }
-export async function getEventParticipants(eventId: string, params?: { search?: string; status?: "confirmed" | "waitlist" | "cancelled" | "all"; page?: number; pageSize?: number }): Promise<{ rows: A.EventParticipant[]; total: number }> {
+export async function getEventParticipants(eventId: string, params?: { search?: string; status?: A.EventParticipantStatus | "all"; page?: number; pageSize?: number }): Promise<{ rows: A.EventParticipant[]; total: number }> {
   const id = Number(eventId); if (!Number.isInteger(id)) return { rows: [], total: 0 }; const [participantRows, userRows] = await Promise.all([participants(), users()]); const userMap = new Map(userRows.map((row) => [row.id, row])); const search = params?.search?.toLowerCase().trim() ?? "";
   const rows = participantRows.filter((row) => row.event_id === id).map((row) => { const user = userMap.get(row.user_id); return { id: String(row.id), eventId, userId: String(row.user_id), name: user?.fullname || user?.username || `User ${row.user_id}`, username: user?.username || `user_${row.user_id}`, avatar: user?.profile_image ?? "", joinedDate: row.joined_at ?? row.created_at, status: participantStatus(row.status) }; }).filter((row) => (!search || row.name.toLowerCase().includes(search) || row.username.toLowerCase().includes(search)) && (!params?.status || params.status === "all" || row.status === params.status));
   return { rows: paginate(rows, params?.page, params?.pageSize), total: rows.length };
@@ -289,7 +297,7 @@ export async function getUserAnalytics(range: A.AnalyticsRange = "30d"): Promise
   return { stats: { totalUsers: rows.length, newUsersThisMonth: rows.filter((row) => new Date(dateValue(row.create_at)) >= month).length, activeUsers: rows.filter((row) => row.is_active !== 0 && row.is_delete !== 1).length, verifiedUsers: rows.filter((row) => row.isverified === 1).length }, growth: buckets(range).map(({ label, end }) => ({ label, newUsers: rows.filter((row) => { const date = new Date(dateValue(row.create_at)); return date >= start && date <= end; }).length, totalUsers: rows.filter((row) => new Date(dateValue(row.create_at)) <= end).length })), byCity: Array.from(byCity).map(([city, count]) => ({ city, users: count })), deviceUsage: [], dau: 0, mau: rows.filter((row) => row.is_active !== 0).length, retentionRate: 0 };
 }
 export async function getEventAnalytics(range: A.AnalyticsRange = "30d"): Promise<A.EventAnalyticsData> {
-  const [eventRows, participantRows, categoryMap] = await Promise.all([events(), participants(), categories()]); const start = cutoff(range); const participantCounts = new Map<number, number>(); participantRows.forEach((row) => participantCounts.set(row.event_id, (participantCounts.get(row.event_id) ?? 0) + 1)); const categoryCounts = new Map<string, number>(); const cityCounts = new Map<string, number>(); eventRows.forEach((row) => { const category = categoryMap.get(row.id) ?? row.intent ?? "Social"; categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1); const city = row.display_location || row.location || "Not provided"; cityCounts.set(city, (cityCounts.get(city) ?? 0) + 1); });
+  const [eventRows, participantRows, categoryMap] = await Promise.all([events(), participants(), categories()]); const start = cutoff(range); const participantCounts = new Map<number, number>(); participantRows.filter(isApprovedParticipant).forEach((row) => participantCounts.set(row.event_id, (participantCounts.get(row.event_id) ?? 0) + 1)); const categoryCounts = new Map<string, number>(); const cityCounts = new Map<string, number>(); eventRows.forEach((row) => { const category = categoryMap.get(row.id) ?? row.intent ?? "Social"; categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1); const city = row.display_location || row.location || "Not provided"; cityCounts.set(city, (cityCounts.get(city) ?? 0) + 1); });
   return { stats: { totalEvents: eventRows.length, activeEvents: eventRows.filter((row) => ["upcoming", "ongoing"].includes(statusOf(row))).length, completedEvents: eventRows.filter((row) => statusOf(row) === "completed").length, cancelledEvents: eventRows.filter((row) => statusOf(row) === "cancelled").length }, creationTrend: buckets(range).map(({ label, end }) => ({ label, created: eventRows.filter((row) => { const date = new Date(dateValue(row.created_at)); return date >= start && date <= end; }).length })), byCategory: Array.from(categoryCounts).map(([name, value]) => ({ name, value, percentage: eventRows.length ? Math.round(value * 100 / eventRows.length) : 0 })), topEvents: eventRows.sort((a, b) => (participantCounts.get(b.id) ?? 0) - (participantCounts.get(a.id) ?? 0)).slice(0, 10).map((row) => ({ name: row.title, participants: participantCounts.get(row.id) ?? 0 })), byCity: Array.from(cityCounts).map(([city, count]) => ({ city, events: count })) };
 }
 export async function getEngagementMetrics(range: A.AnalyticsRange = "30d"): Promise<A.EngagementMetricsData> {

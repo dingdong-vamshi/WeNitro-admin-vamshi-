@@ -79,7 +79,14 @@ export type EventCategory =
   | "education"
   | "sports";
 
-export type EventParticipantStatus = "confirmed" | "waitlist" | "cancelled";
+export type EventParticipantStatus =
+  | "approved"
+  | "confirmed"
+  | "pending"
+  | "waitlist"
+  | "rejected"
+  | "left"
+  | "cancelled";
 
 export type Event = {
   id: string;
