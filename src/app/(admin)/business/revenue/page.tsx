@@ -1,146 +1,49 @@
-import Link from "next/link";
-import { CalendarDays, Trophy, Users2, Wallet } from "lucide-react";
+"use client";
 
-import { getBusinessRevenue } from "@/lib/api";
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { CalendarDays, CheckCircle2, CreditCard, Wallet } from "lucide-react";
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import { BusinessRevenueChart } from "@/components/charts/business-revenue-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { getBusinessRevenue } from "@/lib/api";
 
-function formatInr(n: number) {
-  return `₹${new Intl.NumberFormat("en-IN").format(n)}`;
+function formatMoney(amountMinor: number, currency: string) {
+  try {
+    return new Intl.NumberFormat("en-IN", { style: "currency", currency }).format(amountMinor / 100);
+  } catch {
+    return currency + " " + (amountMinor / 100).toLocaleString("en-IN");
+  }
 }
 
-export default async function RevenueAnalyticsPage() {
-  const revenue = await getBusinessRevenue();
-
+export default function RevenueAnalyticsPage() {
+  const query = useQuery({ queryKey: ["activity-payment-revenue"], queryFn: getBusinessRevenue });
+  if (query.isLoading) return <AdminDataState title="payment revenue" loading />;
+  if (query.isError) return <AdminDataState title="payment revenue" error={query.error} onRetry={() => void query.refetch()} />;
+  if (!query.data || query.data.totalPayments === 0) return <AdminDataState title="activity payment revenue" empty />;
+  const revenue = query.data;
+  const cards = [
+    { icon: <Wallet className="h-5 w-5 text-emerald-500" />, label: "Collected", value: formatMoney(revenue.totalRevenueMinor, revenue.currency) },
+    { icon: <CalendarDays className="h-5 w-5 text-blue-500" />, label: "This Month", value: formatMoney(revenue.thisMonthMinor, revenue.currency) },
+    { icon: <CheckCircle2 className="h-5 w-5 text-violet-500" />, label: "Successful", value: revenue.successfulPayments.toLocaleString("en-IN") },
+    { icon: <CreditCard className="h-5 w-5 text-amber-500" />, label: "Payment Attempts", value: revenue.totalPayments.toLocaleString("en-IN") },
+  ];
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Revenue Analytics</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Track platform earnings from sponsorships, partnerships, and business events.
-        </p>
-      </div>
-
-      {/* Overview metrics */}
+      <div><h1 className="text-2xl font-semibold tracking-tight">Activity Payment Revenue</h1><p className="mt-1 text-sm text-muted-foreground">Revenue from successfully paid WeNitro activity orders.</p></div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <OverviewCard
-          icon={<Wallet className="h-5 w-5 text-emerald-500" />}
-          label="Total Revenue"
-          value={formatInr(revenue.totalRevenue)}
-          bg="bg-emerald-500/10"
-        />
-        <OverviewCard
-          icon={<CalendarDays className="h-5 w-5 text-blue-500" />}
-          label="This Month"
-          value={formatInr(revenue.thisMonth)}
-          bg="bg-blue-500/10"
-        />
-        <OverviewCard
-          icon={<Users2 className="h-5 w-5 text-violet-500" />}
-          label="Active Sponsors"
-          value={revenue.activeSponsors.toString()}
-          bg="bg-violet-500/10"
-        />
-        <OverviewCard
-          icon={<Trophy className="h-5 w-5 text-amber-500" />}
-          label="Sponsored Events"
-          value={revenue.sponsoredEventsCount.toString()}
-          bg="bg-amber-500/10"
-        />
+        {cards.map((card) => <Card key={card.label}><CardContent className="flex flex-col gap-3 pt-5">{card.icon}<div><p className="text-xs text-muted-foreground">{card.label}</p><p className="mt-0.5 text-xl font-bold">{card.value}</p></div></CardContent></Card>)}
       </div>
-
-      {/* Revenue trend chart */}
       <BusinessRevenueChart data={revenue.trend} />
-
-      {/* Top sponsors + event breakdown */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        {/* Top Sponsors */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Top Sponsoring Businesses</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            {revenue.topSponsors.map((sponsor, i) => (
-              <div key={sponsor.businessId}>
-                <div className="flex items-center justify-between py-2.5">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-                      {i + 1}
-                    </span>
-                    <div>
-                      <Link
-                        href={`/business/${sponsor.businessId}`}
-                        className="text-sm font-medium hover:underline"
-                      >
-                        {sponsor.businessName}
-                      </Link>
-                      <p className="text-xs text-muted-foreground">{sponsor.eventsSponsored} events</p>
-                    </div>
-                  </div>
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                    {formatInr(sponsor.totalRevenue)}
-                  </span>
-                </div>
-                {i < revenue.topSponsors.length - 1 && <Separator />}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Revenue by Event */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Revenue by Event</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
-            {revenue.eventBreakdown.map((item, i) => (
-              <div key={item.eventId}>
-                <div className="flex items-center justify-between py-2.5">
-                  <div>
-                    <Link
-                      href={`/business/sponsored-events/${item.eventId}`}
-                      className="text-sm font-medium hover:underline"
-                    >
-                      {item.eventTitle}
-                    </Link>
-                    <p className="text-xs text-muted-foreground">{item.businessName}</p>
-                  </div>
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                    {formatInr(item.revenue)}
-                  </span>
-                </div>
-                {i < revenue.eventBreakdown.length - 1 && <Separator />}
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <Card><CardHeader><CardTitle className="text-base">Top Paying Members</CardTitle></CardHeader><CardContent>
+          {revenue.topPayers.length === 0 ? <p className="text-sm text-muted-foreground">No successful payments yet.</p> : revenue.topPayers.map((payer, index) => <div key={payer.userId}><div className="flex items-center justify-between py-2.5"><div><Link href={"/users/" + payer.userId} className="text-sm font-medium hover:underline">{payer.userName}</Link><p className="text-xs text-muted-foreground">{payer.payments} successful payments</p></div><span className="font-semibold">{formatMoney(payer.amountMinor, revenue.currency)}</span></div>{index < revenue.topPayers.length - 1 ? <Separator /> : null}</div>)}
+        </CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-base">Revenue by Activity</CardTitle></CardHeader><CardContent>
+          {revenue.activityBreakdown.length === 0 ? <p className="text-sm text-muted-foreground">No successful payments yet.</p> : revenue.activityBreakdown.map((activity, index) => <div key={activity.eventId}><div className="flex items-center justify-between py-2.5"><div><Link href={"/events/" + activity.eventId} className="text-sm font-medium hover:underline">{activity.eventTitle}</Link><p className="text-xs text-muted-foreground">{activity.payments} successful payments</p></div><span className="font-semibold">{formatMoney(activity.amountMinor, revenue.currency)}</span></div>{index < revenue.activityBreakdown.length - 1 ? <Separator /> : null}</div>)}
+        </CardContent></Card>
       </div>
     </div>
-  );
-}
-
-function OverviewCard({
-  icon,
-  label,
-  value,
-  bg,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  bg: string;
-}) {
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 pt-5">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${bg}`}>{icon}</div>
-        <div>
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <p className="mt-0.5 text-2xl font-bold tracking-tight">{value}</p>
-        </div>
-      </CardContent>
-    </Card>
   );
 }
