@@ -17,8 +17,26 @@ type EventRow = {
 type ParticipantRow = { id: number; event_id: number; user_id: number; status: string; joined_at: string | null; created_at: string };
 type UserReportRow = { id: number; target_user_id: number; reporter_id: number; reason: string; description: string | null; created_at: string };
 type EventReportRow = { id: number; event_id: number; reporter_id: number; reason: string; description: string | null; created_at: string | null };
+type ActivityPaymentRow = {
+  id: number | string;
+  event_id: number | string;
+  user_id: number | string;
+  provider_order_id: string;
+  provider_payment_id: string | null;
+  payment_session_id: string | null;
+  amount_paisa: number | string;
+  currency: string;
+  status: string;
+  provider_status: string | null;
+  idempotency_key: string;
+  provider_metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  paid_at: string | null;
+};
 
 const EVENT_COLUMNS = "id,title,description,created_by,created_at,updated_at,event_start_time,event_end_time,display_location,location,max_participants,status,intent,is_cancelled,is_deleted,media";
+const PAYMENT_COLUMNS = "id,event_id,user_id,provider_order_id,provider_payment_id,payment_session_id,amount_paisa,currency,status,provider_status,idempotency_key,provider_metadata,created_at,updated_at,paid_at";
 
 function configured() {
   if (!isSupabaseConfigured) throw new Error("Admin data is unavailable because the WeNitro Supabase environment is not configured.");
@@ -161,6 +179,100 @@ function mapEvent(row: EventRow, userMap: Map<number, UserRow>, counts: Map<numb
   return { id: String(row.id), title: row.title, host: host?.fullname || host?.username || `User ${row.created_by}`, city: row.display_location || row.location || "Not provided", date: start, attendees: counts.get(row.id) ?? 0, maxAttendees: row.max_participants ?? 0, engagement: counts.get(row.id) ?? 0, status: statusOf(row), category: categoryOf(categoryMap.get(row.id) ?? row.intent), startTime: new Date(start).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }), location: row.display_location || row.location || "Not provided" };
 }
 
+function normalizedPaymentStatus(row: ActivityPaymentRow): A.PaymentDisplayStatus {
+  const values = [row.status, row.provider_status ?? ""].map((value) => value.trim().toLowerCase());
+  if (values.some((value) => ["success", "paid", "completed", "captured"].includes(value))) return "completed";
+  if (values.some((value) => ["failed", "cancelled", "canceled", "expired", "terminated", "user_dropped"].includes(value))) return "failed";
+  return "pending";
+}
+
+function minorAmount(value: number | string) {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function currencyOf(value: string) {
+  return value.trim().toUpperCase() || "N/A";
+}
+
+async function activityPayments(): Promise<ActivityPaymentRow[]> {
+  configured();
+  const result = await supabase.from("tbl_activity_payments").select(PAYMENT_COLUMNS).order("created_at", { ascending: false });
+  check("Unable to load activity payments", result.error);
+  return (result.data ?? []) as unknown as ActivityPaymentRow[];
+}
+
+function mapPayment(row: ActivityPaymentRow, userMap: Map<string, UserRow>, eventMap: Map<string, EventRow>): A.BusinessTransaction {
+  const user = userMap.get(String(row.user_id));
+  const event = eventMap.get(String(row.event_id));
+  return {
+    id: String(row.id),
+    orderId: row.provider_order_id,
+    paymentId: row.provider_payment_id,
+    userId: String(row.user_id),
+    userName: user?.fullname || user?.username || "User " + row.user_id,
+    eventId: String(row.event_id),
+    eventTitle: event?.title || "Activity " + row.event_id,
+    amountMinor: minorAmount(row.amount_paisa),
+    currency: currencyOf(row.currency),
+    orderStatus: row.provider_status ?? row.status,
+    paymentStatus: row.status,
+    status: normalizedPaymentStatus(row),
+    idempotencyKey: row.idempotency_key,
+    failureReason: typeof row.provider_metadata?.failure_reason === "string" ? row.provider_metadata.failure_reason : null,
+    metadata: row.provider_metadata,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    paidAt: row.paid_at,
+  };
+}
+
+function paymentMetrics(rows: ActivityPaymentRow[]) {
+  const completed = rows.filter((row) => normalizedPaymentStatus(row) === "completed");
+  const totals = new Map<string, { amountMinor: number; payments: number }>();
+  completed.forEach((row) => {
+    const currency = currencyOf(row.currency);
+    const current = totals.get(currency) ?? { amountMinor: 0, payments: 0 };
+    current.amountMinor += minorAmount(row.amount_paisa);
+    current.payments += 1;
+    totals.set(currency, current);
+  });
+  const currencyTotals: A.CurrencyRevenueTotal[] = Array.from(totals, ([currency, value]) => ({ currency, ...value }))
+    .sort((a, b) => b.amountMinor - a.amountMinor);
+  const currency = currencyTotals[0]?.currency ?? currencyOf(rows[0]?.currency ?? "");
+  const totalRevenueMinor = currencyTotals.find((item) => item.currency === currency)?.amountMinor ?? 0;
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const thisMonthMinor = completed
+    .filter((row) => currencyOf(row.currency) === currency && new Date(row.paid_at ?? row.updated_at).getTime() >= monthStart.getTime())
+    .reduce((sum, row) => sum + minorAmount(row.amount_paisa), 0);
+  const now = new Date();
+  const trend: A.BusinessRevenuePoint[] = Array.from({ length: 6 }, (_, index) => {
+    const start = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
+    const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+    const revenueMinor = completed
+      .filter((row) => {
+        const timestamp = new Date(row.paid_at ?? row.updated_at).getTime();
+        return currencyOf(row.currency) === currency && timestamp >= start.getTime() && timestamp < end.getTime();
+      })
+      .reduce((sum, row) => sum + minorAmount(row.amount_paisa), 0);
+    return { label: start.toLocaleDateString("en-IN", { month: "short", year: "2-digit" }), revenue: revenueMinor / 100 };
+  });
+  return {
+    currency,
+    totalRevenueMinor,
+    thisMonthMinor,
+    totalPayments: rows.length,
+    successfulPayments: completed.length,
+    pendingPayments: rows.filter((row) => normalizedPaymentStatus(row) === "pending").length,
+    failedPayments: rows.filter((row) => normalizedPaymentStatus(row) === "failed").length,
+    currencyTotals,
+    trend,
+    completed,
+  };
+}
+
 export async function getDashboardSummary() {
   const snapshot = await getDashboardSnapshot();
   return { metrics: snapshot.metrics, growth: snapshot.growth };
@@ -232,7 +344,20 @@ export async function getReports(): Promise<A.ReportItem[]> {
   const [userReports, eventReports] = await reports();
   return [...userReports.map((row) => ({ id: `user-${row.id}`, type: "user" as const, target: String(row.target_user_id), priority: "medium" as const, status: "pending" as const, createdAt: row.created_at })), ...eventReports.map((row) => ({ id: `event-${row.id}`, type: "event" as const, target: String(row.event_id), priority: "medium" as const, status: "pending" as const, createdAt: dateValue(row.created_at) }))];
 }
-export async function getMonetization(): Promise<A.RevenuePoint[]> { return []; }
+export async function getMonetization(): Promise<A.MonetizationSummary> {
+  const metrics = paymentMetrics(await activityPayments());
+  return {
+    currency: metrics.currency,
+    totalRevenueMinor: metrics.totalRevenueMinor,
+    thisMonthMinor: metrics.thisMonthMinor,
+    totalPayments: metrics.totalPayments,
+    successfulPayments: metrics.successfulPayments,
+    pendingPayments: metrics.pendingPayments,
+    failedPayments: metrics.failedPayments,
+    currencyTotals: metrics.currencyTotals,
+    trend: metrics.trend,
+  };
+}
 export async function getAnalytics() {
   const [userRows, eventRows, participantRows] = await Promise.all([users(), events(), participants()]); const counts = new Map<number, number>(); participantRows.filter(isApprovedParticipant).forEach((row) => counts.set(row.event_id, (counts.get(row.event_id) ?? 0) + 1)); const userMap = new Map(userRows.map((row) => [row.id, row]));
   return { growth: buckets("30d").map(({ label, end }) => ({ label, users: userRows.filter((row) => new Date(dateValue(row.create_at)) <= end).length, events: eventRows.filter((row) => new Date(dateValue(row.created_at)) <= end).length, revenue: 0 })), topEvents: eventRows.sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0)).slice(0, 5).map((row) => ({ id: String(row.id), title: row.title, engagementScore: counts.get(row.id) ?? 0, city: row.display_location || row.location || "Not provided" })), hostPerformance: Array.from(new Set(eventRows.map((row) => row.created_by))).map((id) => ({ host: userMap.get(id)?.fullname || `User ${id}`, rating: userMap.get(id)?.rating ?? 0, hostedEvents: eventRows.filter((row) => row.created_by === id).length })), geoInsights: [] as A.GeoInsight[] };
@@ -289,8 +414,70 @@ export async function getBusinessAccounts(params?: { search?: string; status?: A
 export async function getBusinessProfile(id: string): Promise<A.BusinessProfile | null> { void id; return null; }
 export async function getSponsoredEvents(params?: { search?: string; status?: A.SponsoredEventStatus | "all"; businessId?: string; city?: string; page?: number; pageSize?: number }): Promise<{ rows: A.SponsoredEvent[]; total: number }> { void params; return { rows: [], total: 0 }; }
 export async function getSponsoredEventDetail(id: string): Promise<A.SponsoredEventDetail | null> { void id; return null; }
-export async function getBusinessRevenue(): Promise<{ totalRevenue: number; thisMonth: number; activeSponsors: number; sponsoredEventsCount: number; trend: A.BusinessRevenuePoint[]; topSponsors: A.TopSponsor[]; eventBreakdown: A.EventRevenueItem[] }> { return { totalRevenue: 0, thisMonth: 0, activeSponsors: 0, sponsoredEventsCount: 0, trend: [], topSponsors: [], eventBreakdown: [] }; }
-export async function getBusinessTransactions(params?: { search?: string; status?: "completed" | "pending" | "failed" | "all"; page?: number; pageSize?: number }): Promise<{ rows: A.BusinessTransaction[]; total: number }> { void params; return { rows: [], total: 0 }; }
+export async function getBusinessRevenue(): Promise<A.ActivityPaymentRevenue> {
+  const [paymentRows, userRows, eventRows] = await Promise.all([activityPayments(), users(), events()]);
+  const metrics = paymentMetrics(paymentRows);
+  const userMap = new Map(userRows.map((row) => [String(row.id), row]));
+  const eventMap = new Map(eventRows.map((row) => [String(row.id), row]));
+  const payerTotals = new Map<string, { amountMinor: number; payments: number }>();
+  const eventTotals = new Map<string, { amountMinor: number; payments: number }>();
+  metrics.completed.filter((row) => currencyOf(row.currency) === metrics.currency).forEach((row) => {
+    const userId = String(row.user_id);
+    const eventId = String(row.event_id);
+    const payer = payerTotals.get(userId) ?? { amountMinor: 0, payments: 0 };
+    const activity = eventTotals.get(eventId) ?? { amountMinor: 0, payments: 0 };
+    payer.amountMinor += minorAmount(row.amount_paisa);
+    payer.payments += 1;
+    payerTotals.set(userId, payer);
+    activity.amountMinor += minorAmount(row.amount_paisa);
+    activity.payments += 1;
+    eventTotals.set(eventId, activity);
+  });
+  const topPayers: A.PaymentPayerSummary[] = Array.from(payerTotals, ([userId, value]) => ({
+    userId,
+    userName: userMap.get(userId)?.fullname || userMap.get(userId)?.username || "User " + userId,
+    ...value,
+  })).sort((a, b) => b.amountMinor - a.amountMinor).slice(0, 10);
+  const activityBreakdown: A.PaymentActivitySummary[] = Array.from(eventTotals, ([eventId, value]) => ({
+    eventId,
+    eventTitle: eventMap.get(eventId)?.title || "Activity " + eventId,
+    ...value,
+  })).sort((a, b) => b.amountMinor - a.amountMinor).slice(0, 10);
+  return {
+    currency: metrics.currency,
+    totalRevenueMinor: metrics.totalRevenueMinor,
+    thisMonthMinor: metrics.thisMonthMinor,
+    totalPayments: metrics.totalPayments,
+    successfulPayments: metrics.successfulPayments,
+    pendingPayments: metrics.pendingPayments,
+    failedPayments: metrics.failedPayments,
+    currencyTotals: metrics.currencyTotals,
+    trend: metrics.trend,
+    topPayers,
+    activityBreakdown,
+  };
+}
+export async function getBusinessTransactions(params?: { search?: string; status?: A.PaymentDisplayStatus | "all"; page?: number; pageSize?: number }): Promise<{ rows: A.BusinessTransaction[]; total: number }> {
+  const [paymentRows, userRows, eventRows] = await Promise.all([activityPayments(), users(), events()]);
+  const userMap = new Map(userRows.map((row) => [String(row.id), row]));
+  const eventMap = new Map(eventRows.map((row) => [String(row.id), row]));
+  const search = params?.search?.toLowerCase().trim() ?? "";
+  const status = params?.status ?? "all";
+  const rows = paymentRows.map((row) => mapPayment(row, userMap, eventMap)).filter((row) => {
+    const searchMatch = !search || [
+      row.id,
+      row.orderId,
+      row.paymentId ?? "",
+      row.userId,
+      row.userName,
+      row.eventId,
+      row.eventTitle,
+      row.idempotencyKey,
+    ].some((value) => value.toLowerCase().includes(search));
+    return searchMatch && (status === "all" || row.status === status);
+  });
+  return { rows: paginate(rows, params?.page, params?.pageSize), total: rows.length };
+}
 
 export async function getUserAnalytics(range: A.AnalyticsRange = "30d"): Promise<A.UserAnalyticsData> {
   const rows = await users(); const month = new Date(); month.setDate(1); month.setHours(0, 0, 0, 0); const start = cutoff(range); const byCity = new Map<string, number>(); rows.forEach((row) => byCity.set(locationOf(row), (byCity.get(locationOf(row)) ?? 0) + 1));
