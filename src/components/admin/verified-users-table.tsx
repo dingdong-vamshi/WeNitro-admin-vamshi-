@@ -6,7 +6,6 @@ import { Activity, CalendarDays, ChevronDown, MapPin, MoreHorizontal, Search } f
 import Link from "next/link";
 
 import { getVerifiedUsers } from "@/lib/api";
-import { users as usersSeed } from "@/lib/mock-data";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,13 +41,13 @@ export function VerifiedUsersTable() {
   });
 
   const locationOptions = useMemo(
-    () => ["all", ...Array.from(new Set(usersSeed.map((user) => user.location))).sort((a, b) => a.localeCompare(b))],
-    [],
+    () => ["all", ...Array.from(new Set((query.data ?? []).map((user) => user.location).filter(Boolean))).sort((a, b) => a.localeCompare(b))],
+    [query.data],
   );
 
   const filteredRows = useMemo(() => {
     const allRows = query.data ?? [];
-    const now = new Date("2026-03-13");
+    const now = new Date();
     const minJoinDate =
       signupDate === "last30"
         ? new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
@@ -57,7 +56,7 @@ export function VerifiedUsersTable() {
           : signupDate === "last180"
             ? new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
             : signupDate === "thisYear"
-              ? new Date("2026-01-01")
+              ? new Date(now.getFullYear(), 0, 1)
               : null;
 
     return allRows.filter((user) => {

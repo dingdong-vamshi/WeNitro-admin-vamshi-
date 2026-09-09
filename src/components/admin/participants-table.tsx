@@ -7,6 +7,7 @@ import { Ban, Bell, User, XCircle } from "lucide-react";
 
 import { useDebounce } from "@/hooks/use-debounce";
 import { getEventParticipants } from "@/lib/api";
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import type { EventParticipantStatus } from "@/types/admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,13 +15,17 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const statusVariant: Record<EventParticipantStatus, "success" | "secondary" | "danger"> = {
+const statusVariant: Record<EventParticipantStatus, "success" | "secondary" | "warning" | "danger"> = {
+  approved: "success",
   confirmed: "success",
+  pending: "warning",
   waitlist: "secondary",
+  rejected: "danger",
+  left: "secondary",
   cancelled: "danger",
 };
 
-const allStatuses: Array<EventParticipantStatus | "all"> = ["all", "confirmed", "waitlist", "cancelled"];
+const allStatuses: Array<EventParticipantStatus | "all"> = ["all", "approved", "confirmed", "pending", "waitlist", "rejected", "left", "cancelled"];
 
 export function ParticipantsTable({ eventId }: { eventId: string }) {
   const [search, setSearch] = useState("");
@@ -39,11 +44,12 @@ export function ParticipantsTable({ eventId }: { eventId: string }) {
         pageSize,
       }),
   });
-
   const totalPages = useMemo(() => {
     if (!query.data) return 1;
     return Math.max(1, Math.ceil(query.data.total / pageSize));
   }, [query.data]);
+
+  if (query.isError) return <AdminDataState title="participants" error={query.error} onRetry={() => void query.refetch()} />;
 
   return (
     <div className="space-y-4">
@@ -75,7 +81,7 @@ export function ParticipantsTable({ eventId }: { eventId: string }) {
             <TableRow className="bg-muted/30">
               <TableHead>Participant</TableHead>
               <TableHead>Username</TableHead>
-              <TableHead>Joined Date</TableHead>
+              <TableHead>Participation Date</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>

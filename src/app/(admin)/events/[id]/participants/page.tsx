@@ -1,19 +1,23 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { useParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 
 import { ParticipantsTable } from "@/components/admin/participants-table";
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getEventDetail } from "@/lib/api";
 
-export default async function EventParticipantsPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const event = await getEventDetail(id);
-
-  if (!event) {
-    notFound();
-  }
+export default function EventParticipantsPage() {
+  const { id } = useParams<{ id: string }>();
+  const query = useQuery({ queryKey: ["activity-detail", id], queryFn: () => getEventDetail(id), enabled: Boolean(id) });
+  if (query.isLoading) return <AdminDataState title="activity participants" loading />;
+  if (query.error) return <AdminDataState title="activity participants" error={query.error} onRetry={() => void query.refetch()} />;
+  if (!query.data) return <AdminDataState title="activity record" empty />;
+  const event = query.data;
 
   return (
     <div className="space-y-6">

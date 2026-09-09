@@ -2,17 +2,13 @@
 
 import Link from "next/link";
 import {
-  Ban,
   CalendarDays,
   Camera,
-  CheckCircle2,
   MapPin,
-  ShieldAlert,
   Star,
   Tag,
   Users2,
   Video,
-  XCircle,
 } from "lucide-react";
 
 import type { EventDetail } from "@/types/admin";
@@ -20,9 +16,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { EventDeleteDialog } from "@/components/admin/event-delete-dialog";
-import { EventModerateDialog, type ModerateAction } from "@/components/admin/event-moderate-dialog";
-import { useState } from "react";
 
 const statusVariant: Record<string, "secondary" | "success" | "warning" | "danger" | "outline"> = {
   upcoming: "secondary",
@@ -44,9 +37,6 @@ const categoryLabel: Record<string, string> = {
 };
 
 export function EventDetailCard({ event }: { event: EventDetail }) {
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [moderateOpen, setModerateOpen] = useState(false);
-
   return (
     <>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -66,26 +56,6 @@ export function EventDetailCard({ event }: { event: EventDetail }) {
               <Users2 className="mr-1.5 h-3.5 w-3.5" />
               Participants List
             </Link>
-          </Button>
-          <Button variant="outline" size="sm">
-            <Star className="mr-1.5 h-3.5 w-3.5 text-amber-500" />
-            {event.isFeatured ? "Unfeature" : "Feature Event"}
-          </Button>
-          <Button variant="outline" size="sm">
-            <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 text-emerald-500" />
-            Approve Event
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setModerateOpen(true)}>
-            <ShieldAlert className="mr-1.5 h-3.5 w-3.5 text-orange-500" />
-            Moderate
-          </Button>
-          <Button variant="outline" size="sm">
-            <XCircle className="mr-1.5 h-3.5 w-3.5 text-yellow-600" />
-            Cancel Event
-          </Button>
-          <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
-            <Ban className="mr-1.5 h-3.5 w-3.5" />
-            Delete Event
           </Button>
         </div>
       </div>
@@ -254,18 +224,6 @@ export function EventDetailCard({ event }: { event: EventDetail }) {
         </div>
       </div>
 
-      <EventDeleteDialog
-        eventTitle={event.title}
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        onConfirm={() => {}}
-      />
-      <EventModerateDialog
-        eventTitle={event.title}
-        open={moderateOpen}
-        onOpenChange={setModerateOpen}
-        onConfirm={(_action: ModerateAction) => {}}
-      />
     </>
   );
 }

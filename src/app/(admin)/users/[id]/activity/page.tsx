@@ -1,12 +1,24 @@
+"use client";
+
 import { Activity, ArrowLeft, CalendarDays, Flag, LogIn, MessageCircle, Star, Trophy, Users } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { useParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUserActivity, getUserProfile } from "@/lib/api";
-import { activityLabel } from "@/lib/mock-data";
 import type { ActivityType } from "@/types/admin";
+
+const activityLabel: Record<ActivityType, string> = {
+  event_created: "Events created",
+  event_joined: "Events joined",
+  message_sent: "Messages sent",
+  report_received: "Reports received",
+  rating_received: "Ratings received",
+  login: "Logins",
+};
 
 const activityMeta: Record<ActivityType, { icon: React.ElementType; dot: string; badge: string }> = {
   event_created: {
@@ -41,13 +53,13 @@ const activityMeta: Record<ActivityType, { icon: React.ElementType; dot: string;
   },
 };
 
-export default async function UserActivityPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const [profile, activities] = await Promise.all([getUserProfile(id), getUserActivity(id)]);
-
-  if (!profile) {
-    notFound();
-  }
+export default function UserActivityPage() {
+  const { id } = useParams<{ id: string }>();
+  const query = useQuery({ queryKey: ["user-activity", id], queryFn: async () => ({ profile: await getUserProfile(id), activities: await getUserActivity(id) }), enabled: Boolean(id) });
+  if (query.isLoading) return <AdminDataState title="user activity" loading />;
+  if (query.error) return <AdminDataState title="user activity" error={query.error} onRetry={() => void query.refetch()} />;
+  if (!query.data?.profile) return <AdminDataState title="user record" empty />;
+  const { profile, activities } = query.data;
 
   return (
     <div className="space-y-6">

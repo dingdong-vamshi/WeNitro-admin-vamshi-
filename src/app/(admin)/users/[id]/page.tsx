@@ -1,20 +1,26 @@
+"use client";
+
 import { Activity, Ban, CalendarDays, CheckCircle2, Mail, MapPin, Phone, ShieldOff, ShieldAlert, Star, UserCheck } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { useParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 
 import { UserStatusBadge } from "@/components/admin/user-status-badge";
+import { AdminDataState } from "@/components/admin/admin-data-state";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { getUserActivity, getUserProfile } from "@/lib/api";
 
-export default async function UserProfilePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const [profile, activities] = await Promise.all([getUserProfile(id), getUserActivity(id)]);
-
-  if (!profile) {
-    notFound();
-  }
+export default function UserProfilePage() {
+  const { id } = useParams<{ id: string }>();
+  const query = useQuery({ queryKey: ["user-profile", id], queryFn: async () => ({ profile: await getUserProfile(id), activities: await getUserActivity(id) }), enabled: Boolean(id) });
+  if (query.isLoading) return <AdminDataState title="user profile" loading />;
+  if (query.error) return <AdminDataState title="user profile" error={query.error} onRetry={() => void query.refetch()} />;
+  if (!query.data?.profile) return <AdminDataState title="user record" empty />;
+  const { profile, activities } = query.data;
 
   return (
     <div className="space-y-6">
@@ -65,13 +71,17 @@ export default async function UserProfilePage({ params }: { params: Promise<{ id
           <CardContent className="space-y-6 pt-6">
             {/* Avatar row */}
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 text-2xl font-bold text-primary ring-1 ring-primary/20">
-                {profile.avatar}
-              </div>
+              <Avatar className="h-20 w-20 shrink-0 rounded-2xl ring-1 ring-primary/20">
+                {profile.avatar.startsWith("http") ? <AvatarImage src={profile.avatar} alt={profile.name} /> : null}
+                <AvatarFallback className="rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 text-2xl font-bold text-primary">
+                  {profile.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
               <div className="space-y-1.5">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <h2 className="text-xl font-semibold">{profile.name}</h2>
                   <UserStatusBadge status={profile.status} />
+                  <Badge variant={profile.accountType === "partner" ? "info" : "secondary"}>{profile.accountType === "partner" ? "Partner capability active" : "Individual · Partner not active"}</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">{profile.username}</p>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -152,6 +162,7 @@ export default async function UserProfilePage({ params }: { params: Promise<{ id
               <div className="flex items-center justify-between rounded-xl border border-border/70 bg-muted/25 px-4 py-3">
                 <span className="font-medium text-muted-foreground">Current Status</span>
                 <UserStatusBadge status={profile.status} />
+                  <Badge variant={profile.accountType === "partner" ? "info" : "secondary"}>{profile.accountType === "partner" ? "Partner capability active" : "Individual · Partner not active"}</Badge>
               </div>
               {profile.verifiedAt ? (
                 <div className="flex items-start gap-3 rounded-xl border border-border/70 px-4 py-3">

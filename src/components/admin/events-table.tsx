@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import {
   BookOpen,
   Bell,
@@ -145,7 +146,6 @@ export function EventsTable({
     queryKey: ["events", debouncedSearch, status, category, city, page, pageSize],
     queryFn: () => getEvents({ search: debouncedSearch, status, category, city, page, pageSize }),
   });
-
   const totalPages = useMemo(() => {
     if (!query.data) return 1;
     return Math.max(1, Math.ceil(query.data.total / pageSize));
@@ -170,6 +170,8 @@ export function EventsTable({
       };
     });
   }, [query.data]);
+
+  if (query.isError) return <AdminDataState title="activities" error={query.error} onRetry={() => void query.refetch()} />;
 
   const selectBaseClass = "h-10 appearance-none rounded-lg border border-border bg-card pl-9 pr-8 text-xs font-semibold text-foreground shadow-sm outline-none transition-all focus:border-primary/45 focus:ring-3 focus:ring-ring/10";
 
@@ -334,6 +336,7 @@ export function EventsTable({
                         {initials}
                       </div>
                       <span className="text-sm">{event.host}</span>
+                      {event.hostAccountType === "partner" ? <Badge variant="info">Partner active</Badge> : null}
                     </div>
                   </TableCell>
 

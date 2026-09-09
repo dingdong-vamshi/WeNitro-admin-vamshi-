@@ -19,7 +19,8 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useDebounce } from "@/hooks/use-debounce";
 import { getUsers } from "@/lib/api";
-import type { User, UserStatus } from "@/types/admin";
+import { AdminDataState } from "@/components/admin/admin-data-state";
+import type { AccountType, User, UserStatus } from "@/types/admin";
 import { TremorAreaChart } from "@/components/charts/tremor-charts";
 
 const topTabs: Array<{ label: string; value: UserStatus | "all" }> = [
@@ -65,6 +66,7 @@ function formatJoinedDate(value: string) {
 
 export function UsersTable({ initialStatus = "all" }: { initialStatus?: UserStatus | "all" }) {
   const [search, setSearch] = useState("");
+  const [accountType, setAccountType] = useState<AccountType | "all">("all");
   const [status, setStatus] = useState<UserStatus | "all">(initialStatus);
   const [location, setLocation] = useState("all");
   const [signupDate, setSignupDate] = useState<"all" | "last30" | "last90" | "last180" | "thisYear">("all");
@@ -76,8 +78,8 @@ export function UsersTable({ initialStatus = "all" }: { initialStatus?: UserStat
   const debouncedSearch = useDebounce(search);
   const router = useRouter();
   const query = useQuery({
-    queryKey: ["users", debouncedSearch, status, location, signupDate, participation, page, pageSize],
-    queryFn: () => getUsers({ search: debouncedSearch, status, location, signupDate, participation, page, pageSize }),
+    queryKey: ["users", debouncedSearch, accountType, status, location, signupDate, participation, page, pageSize],
+    queryFn: () => getUsers({ accountType, search: debouncedSearch, status, location, signupDate, participation, page, pageSize }),
   });
   const locationOptions = useMemo(
     () => ["all", ...Array.from(new Set((query.data?.rows ?? []).map((user) => user.location))).sort((a, b) => a.localeCompare(b))],
@@ -104,6 +106,8 @@ export function UsersTable({ initialStatus = "all" }: { initialStatus?: UserStat
       };
     });
   }, [query.data]);
+
+  if (query.isError) return <AdminDataState title="users" error={query.error} onRetry={() => void query.refetch()} />;
 
   const selectBaseClass = "h-10 appearance-none rounded-lg border border-border bg-card pl-9 pr-8 text-xs font-semibold text-foreground shadow-sm outline-none transition-all focus:border-primary/45 focus:ring-3 focus:ring-ring/10";
 
@@ -155,6 +159,19 @@ export function UsersTable({ initialStatus = "all" }: { initialStatus?: UserStat
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <select
+              aria-label="Partner capability"
+              value={accountType}
+              onChange={(event) => {
+                setAccountType(event.target.value as AccountType | "all");
+                setPage(1);
+              }}
+              className={selectBaseClass}
+            >
+              <option value="all">All users</option>
+              <option value="individual">Individual · Partner not active</option>
+              <option value="partner">Partner capability active</option>
+            </select>
             <div className="relative">
               <SlidersHorizontal className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <select
@@ -236,6 +253,7 @@ export function UsersTable({ initialStatus = "all" }: { initialStatus?: UserStat
           <TableHeader>
             <TableRow className="border-b border-border/50 bg-muted/50 hover:bg-muted/50">
               <TableHead className="pl-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Name</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Partner Capability</TableHead>
               <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</TableHead>
               <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Joined</TableHead>
               <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Location</TableHead>
@@ -257,7 +275,7 @@ export function UsersTable({ initialStatus = "all" }: { initialStatus?: UserStat
                         </div>
                       </div>
                     </TableCell>
-                    {Array.from({ length: 6 }).map((__, j) => (
+                    {Array.from({ length: 7 }).map((__, j) => (
                       <TableCell key={j}><div className="h-3.5 w-24 animate-pulse rounded bg-muted" /></TableCell>
                     ))}
                   </TableRow>
@@ -266,7 +284,7 @@ export function UsersTable({ initialStatus = "all" }: { initialStatus?: UserStat
 
             {!query.isLoading && query.data?.rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="py-14 text-center text-sm text-muted-foreground">
+                <TableCell colSpan={8} className="py-14 text-center text-sm text-muted-foreground">
                   No users found matching your filters.
                 </TableCell>
               </TableRow>
@@ -286,6 +304,7 @@ export function UsersTable({ initialStatus = "all" }: { initialStatus?: UserStat
                         </div>
                       </div>
                     </TableCell>
+                    <TableCell className="py-3"><Badge variant={user.accountType === "partner" ? "info" : "secondary"}>{user.accountType === "partner" ? "Partner active" : "Individual"}</Badge></TableCell>
                     <TableCell className="py-3 text-sm">{user.email}</TableCell>
                     <TableCell className="py-3 text-sm tabular-nums">{formatJoinedDate(user.joinedAt)}</TableCell>
                     <TableCell className="py-3 text-sm text-muted-foreground">{user.location}</TableCell>
