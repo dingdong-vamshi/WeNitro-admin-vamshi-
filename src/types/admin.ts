@@ -1,3 +1,5 @@
+export type AccountType = "individual" | "partner";
+
 export type UserStatus = "active" | "verified" | "blocked" | "suspended" | "banned";
 
 export type ActivityType =
@@ -19,6 +21,7 @@ export type UserActivity = {
 export type BanDuration = "permanent" | "30d" | "90d";
 
 export type UserProfile = {
+  accountType: AccountType;
   id: string;
   name: string;
   email: string;
@@ -49,6 +52,7 @@ export type AdminRole =
   | "Support Agent";
 
 export type User = {
+  accountType: AccountType;
   id: string;
   name: string;
   username: string;
@@ -79,9 +83,17 @@ export type EventCategory =
   | "education"
   | "sports";
 
-export type EventParticipantStatus = "confirmed" | "waitlist" | "cancelled";
+export type EventParticipantStatus =
+  | "approved"
+  | "confirmed"
+  | "pending"
+  | "waitlist"
+  | "rejected"
+  | "left"
+  | "cancelled";
 
 export type Event = {
+  hostAccountType: AccountType;
   id: string;
   title: string;
   host: string;
@@ -445,6 +457,55 @@ export type BusinessRevenuePoint = {
   revenue: number;
 };
 
+export type PaymentDisplayStatus = "completed" | "pending" | "failed";
+
+export type CurrencyRevenueTotal = {
+  currency: string;
+  amountMinor: number;
+  payments: number;
+};
+
+export type PaymentPayerSummary = {
+  userId: string;
+  userName: string;
+  amountMinor: number;
+  payments: number;
+};
+
+export type PaymentActivitySummary = {
+  eventId: string;
+  eventTitle: string;
+  amountMinor: number;
+  payments: number;
+};
+
+export type ActivityPaymentRevenue = {
+  currency: string;
+  totalRevenueMinor: number;
+  thisMonthMinor: number;
+  totalPayments: number;
+  successfulPayments: number;
+  pendingPayments: number;
+  failedPayments: number;
+  currencyTotals: CurrencyRevenueTotal[];
+  trend: BusinessRevenuePoint[];
+  topPayers: PaymentPayerSummary[];
+  activityBreakdown: PaymentActivitySummary[];
+};
+
+export type MonetizationSummary = Pick<
+  ActivityPaymentRevenue,
+  | "currency"
+  | "totalRevenueMinor"
+  | "thisMonthMinor"
+  | "totalPayments"
+  | "successfulPayments"
+  | "pendingPayments"
+  | "failedPayments"
+  | "currencyTotals"
+  | "trend"
+>;
+
 export type TopSponsor = {
   businessId: string;
   businessName: string;
@@ -461,12 +522,23 @@ export type EventRevenueItem = {
 
 export type BusinessTransaction = {
   id: string;
-  businessId: string;
-  businessName: string;
-  amount: number;
-  date: string;
+  orderId: string;
+  paymentId: string | null;
+  userId: string;
+  userName: string;
+  eventId: string;
   eventTitle: string;
-  status: "completed" | "pending" | "failed";
+  amountMinor: number;
+  currency: string;
+  orderStatus: string;
+  paymentStatus: string;
+  status: PaymentDisplayStatus;
+  idempotencyKey: string;
+  failureReason: string | null;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+  paidAt: string | null;
 };
 
 // ── Analytics Module ─────────────────────────────────────────────────────────
