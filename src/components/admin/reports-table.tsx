@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { getReports } from "@/lib/api";
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -24,6 +25,9 @@ export function ReportsTable() {
     queryKey: ["reports"],
     queryFn: getReports,
   });
+
+  if (query.isLoading) return <AdminDataState title="reports" loading />;
+  if (query.isError) return <AdminDataState title="reports" error={query.error} onRetry={() => void query.refetch()} />;
 
   return (
     <Table>

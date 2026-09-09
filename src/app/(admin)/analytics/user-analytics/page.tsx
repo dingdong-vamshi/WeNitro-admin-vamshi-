@@ -1,23 +1,29 @@
+"use client";
+
 import { Suspense } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import { Users, UserCheck, Activity, ShieldCheck } from "lucide-react";
 
 import { getUserAnalytics } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { UserGrowthChart, UsersByCityChart, DeviceUsageChart } from "@/components/charts/user-analytics-charts";
 import { AnalyticsFilters } from "@/components/admin/analytics-filters";
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import type { AnalyticsRange } from "@/types/admin";
-
-type Props = { searchParams: Promise<{ range?: string }> };
 
 const statIcons = [Users, UserCheck, Activity, ShieldCheck];
 const statColors = ["text-chart-1", "text-chart-2", "text-chart-3", "text-chart-4"];
 
-export default async function UserAnalyticsPage({ searchParams }: Props) {
-  const { range: rawRange } = await searchParams;
+export default function UserAnalyticsPage() {
+  const rawRange = useSearchParams().get("range");
   const range: AnalyticsRange =
     rawRange === "7d" || rawRange === "12m" ? rawRange : "30d";
 
-  const data = await getUserAnalytics(range);
+  const query = useQuery({ queryKey: ["user-analytics", range], queryFn: () => getUserAnalytics(range) });
+  if (query.isLoading) return <AdminDataState title="user analytics" loading />;
+  if (query.error || !query.data) return <AdminDataState title="user analytics" error={query.error} onRetry={() => void query.refetch()} />;
+  const data = query.data;
 
   const stats = [
     { label: "Total Users", value: data.stats.totalUsers.toLocaleString() },

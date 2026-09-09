@@ -6,6 +6,7 @@ import { ChevronDown, ClipboardList, MoreHorizontal, Search, ShieldAlert, UserCo
 import { useRouter } from "next/navigation";
 
 import { getPendingReportItems } from "@/lib/api";
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,11 +41,12 @@ export function PendingReportsTable() {
     queryKey: ["pending-reports", filter, page, pageSize],
     queryFn: () => getPendingReportItems({ type: filter, page, pageSize }),
   });
-
   const totalPages = useMemo(() => {
     if (!query.data) return 1;
     return Math.max(1, Math.ceil(query.data.total / pageSize));
   }, [query.data, pageSize]);
+
+  if (query.isError) return <AdminDataState title="pending reports" error={query.error} onRetry={() => void query.refetch()} />;
 
   const showingStart = query.data && query.data.total > 0 ? (page - 1) * pageSize + 1 : 0;
   const showingEnd = query.data ? Math.min(page * pageSize, query.data.total) : 0;

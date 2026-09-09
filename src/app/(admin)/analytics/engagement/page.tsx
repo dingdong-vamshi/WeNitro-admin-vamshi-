@@ -1,4 +1,8 @@
+"use client";
+
 import { Suspense } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import { UserPlus, MessageCircle, Bookmark, Share2, Clock } from "lucide-react";
 
 import { getEngagementMetrics } from "@/lib/api";
@@ -9,16 +13,18 @@ import {
   ActivityHeatmapChart,
 } from "@/components/charts/engagement-charts";
 import { AnalyticsFilters } from "@/components/admin/analytics-filters";
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import type { AnalyticsRange } from "@/types/admin";
 
-type Props = { searchParams: Promise<{ range?: string }> };
-
-export default async function EngagementMetricsPage({ searchParams }: Props) {
-  const { range: rawRange } = await searchParams;
+export default function EngagementMetricsPage() {
+  const rawRange = useSearchParams().get("range");
   const range: AnalyticsRange =
     rawRange === "7d" || rawRange === "12m" ? rawRange : "30d";
 
-  const data = await getEngagementMetrics(range);
+  const query = useQuery({ queryKey: ["engagement-metrics", range], queryFn: () => getEngagementMetrics(range) });
+  if (query.isLoading) return <AdminDataState title="engagement metrics" loading />;
+  if (query.error || !query.data) return <AdminDataState title="engagement metrics" error={query.error} onRetry={() => void query.refetch()} />;
+  const data = query.data;
 
   const stats = [
     { label: "Total Event Joins", value: data.stats.totalJoins.toLocaleString(), Icon: UserPlus, color: "text-chart-1" },

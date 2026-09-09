@@ -1,14 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Shield,
   Clock,
   Globe,
   LogIn,
-  Plus,
-  Trash2,
   Save,
   Users,
   ShieldCheck,
@@ -21,7 +18,6 @@ import { getAccessControlConfig, getAdminSecurityOverview } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 
 const overviewCards = [
@@ -65,33 +61,8 @@ export function AdminAccessControlScreen() {
 
   const config = configQuery.data;
   const overview = overviewQuery.data;
-
-  const [ips, setIps] = useState<string[]>(config?.allowedIps ?? ["192.168.1.10", "192.168.1.11", "192.168.1.12", "10.0.0.5"]);
-  const [newIp, setNewIp] = useState("");
-  const [requireTwoFA, setRequireTwoFA] = useState(config?.requireTwoFA ?? true);
-  const [restrictToOfficeIp, setRestrictToOfficeIp] = useState(config?.restrictToOfficeIp ?? true);
-  const [autoLogout, setAutoLogout] = useState(config?.autoLogoutInactive ?? true);
-  const [saved, setSaved] = useState(false);
-
-  // Sync state when data loads
+  const ips = config?.allowedIps ?? [];
   const policies = config?.policies ?? [];
-
-  function addIp() {
-    const trimmed = newIp.trim();
-    if (trimmed && !ips.includes(trimmed)) {
-      setIps([...ips, trimmed]);
-      setNewIp("");
-    }
-  }
-
-  function removeIp(ip: string) {
-    setIps(ips.filter((i) => i !== ip));
-  }
-
-  function handleSave() {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  }
 
   return (
     <div className="space-y-6">
@@ -152,11 +123,17 @@ export function AdminAccessControlScreen() {
                   <p className="text-xs text-muted-foreground">{policy.description}</p>
                 </div>
                 <Switch
-                  defaultChecked={policy.status === "enabled"}
+                  checked={policy.status === "enabled"}
+                  disabled
                   aria-label={`Toggle ${policy.name}`}
                 />
               </div>
             ))}
+            {policies.length === 0 && (
+              <p className="rounded-lg border border-dashed border-border/70 px-4 py-6 text-center text-sm text-muted-foreground">
+                No persisted access-control policies are configured.
+              </p>
+            )}
 
             {/* Security Options */}
             <div className="rounded-lg border border-border/60 p-4 space-y-3 bg-muted/20 mt-2">
@@ -166,21 +143,21 @@ export function AdminAccessControlScreen() {
                   <p className="text-sm">Require 2FA for all admins</p>
                   <p className="text-xs text-muted-foreground">Force two-factor authentication on login</p>
                 </div>
-                <Switch checked={requireTwoFA} onCheckedChange={setRequireTwoFA} />
+                <Switch checked={config?.requireTwoFA ?? false} disabled />
               </div>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm">Restrict to office IP</p>
                   <p className="text-xs text-muted-foreground">Only allow admin login from whitelisted IPs</p>
                 </div>
-                <Switch checked={restrictToOfficeIp} onCheckedChange={setRestrictToOfficeIp} />
+                <Switch checked={config?.restrictToOfficeIp ?? false} disabled />
               </div>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm">Auto logout inactive admins</p>
                   <p className="text-xs text-muted-foreground">End sessions after timeout period</p>
                 </div>
-                <Switch checked={autoLogout} onCheckedChange={setAutoLogout} />
+                <Switch checked={config?.autoLogoutInactive ?? false} disabled />
               </div>
             </div>
           </CardContent>
@@ -206,30 +183,13 @@ export function AdminAccessControlScreen() {
                     className="flex items-center justify-between rounded-md border border-border/60 bg-muted/20 px-3 py-2"
                   >
                     <span className="font-mono text-sm">{ip}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-destructive hover:text-destructive"
-                      onClick={() => removeIp(ip)}
-                      aria-label={`Remove IP ${ip}`}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
                   </div>
                 ))}
-              </div>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="e.g. 10.0.0.50"
-                  value={newIp}
-                  onChange={(e) => setNewIp(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addIp()}
-                  className="h-8 text-sm font-mono"
-                />
-                <Button size="sm" variant="outline" onClick={addIp}>
-                  <Plus className="h-4 w-4" />
-                  Add IP
-                </Button>
+                {ips.length === 0 && (
+                  <p className="rounded-md border border-dashed border-border/70 px-3 py-4 text-center text-xs text-muted-foreground">
+                    No IP allowlist is configured.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -240,7 +200,7 @@ export function AdminAccessControlScreen() {
                 <span className="text-sm font-semibold">Session Timeout</span>
               </div>
               <p className="text-2xl font-bold tabular-nums">
-                {config?.sessionTimeoutMinutes ?? 30}
+                {config?.sessionTimeoutMinutes ?? "—"}
                 <span className="ml-1 text-sm font-normal text-muted-foreground">minutes</span>
               </p>
 
@@ -249,17 +209,17 @@ export function AdminAccessControlScreen() {
                 <span className="text-sm font-semibold">Max Login Attempts</span>
               </div>
               <p className="text-2xl font-bold tabular-nums">
-                {config?.maxLoginAttempts ?? 5}
+                {config?.maxLoginAttempts ?? "—"}
                 <span className="ml-1 text-sm font-normal text-muted-foreground">attempts</span>
               </p>
             </div>
 
             <div className="flex gap-2 pt-1">
-              <Button className="flex-1" onClick={handleSave} disabled={saved}>
+              <Button className="flex-1" disabled title="Access-control persistence is not configured">
                 <Save className="h-4 w-4" />
-                {saved ? "Saved!" : "Save Settings"}
+                Backend not configured
               </Button>
-              <Button variant="outline">
+              <Button variant="outline" disabled title="Access-control persistence is not configured">
                 <Shield className="h-4 w-4" />
                 Update Policy
               </Button>

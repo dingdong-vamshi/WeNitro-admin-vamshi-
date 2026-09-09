@@ -1,10 +1,17 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import { getTopEventsReportData } from "@/lib/api";
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TopEventsReportTable } from "@/components/admin/top-events-report-table";
 import { CalendarDays, Star, Users2, MapPin } from "lucide-react";
 
-export default async function TopEventsPage() {
-  const data = await getTopEventsReportData();
+export default function TopEventsPage() {
+  const query = useQuery({ queryKey: ["top-activities-summary"], queryFn: getTopEventsReportData });
+  if (query.isLoading) return <AdminDataState title="top activities" loading />;
+  if (query.error || !query.data) return <AdminDataState title="top activities" error={query.error} onRetry={() => void query.refetch()} />;
+  const data = query.data;
 
   const totalParticipants = data.reduce((s, r) => s + r.participants, 0);
   const avgRating = (data.reduce((s, r) => s + r.rating, 0) / data.length).toFixed(2);

@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Search, ShieldOff, Eye, Ban, RotateCcw, FileText } from "lucide-react";
 
 import { getSecurityBlockedUsers } from "@/lib/api";
-import { securityBlockedUsers } from "@/lib/mock-data";
 import type { BlockReason, SecurityBlockedUser } from "@/types/admin";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -56,8 +55,8 @@ export function SecurityBlockedUsersTable() {
   });
 
   const countryOptions = useMemo(
-    () => ["all", ...Array.from(new Set(securityBlockedUsers.map((u) => u.country))).sort()],
-    [],
+    () => ["all", ...Array.from(new Set((query.data?.rows ?? []).map((user) => user.country).filter(Boolean))).sort()],
+    [query.data?.rows],
   );
 
   const totalPages = useMemo(() => {

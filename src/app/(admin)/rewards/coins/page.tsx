@@ -1,16 +1,29 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import { Coins } from "lucide-react";
 
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import { CoinsDistributionTable } from "@/components/admin/coins-distribution-table";
 import { MetricCard } from "@/components/admin/metric-card";
-
-const metrics = [
-  { title: "Total Rules", value: "8", delta: "Active", trend: "flat" as const },
-  { title: "Avg Coins / User", value: "387", delta: "+12 this month", trend: "up" as const },
-  { title: "Coins Distributed Today", value: "14,320", delta: "+6.2%", trend: "up" as const },
-  { title: "Top Earning Action", value: "Host Event", delta: "30 coins", trend: "flat" as const },
-];
+import { getCoinRules, getGamificationMetrics } from "@/lib/api";
 
 export default function CoinsDistributionPage() {
+  const query = useQuery({
+    queryKey: ["coin-page-metrics"],
+    queryFn: async () => {
+      const [rules, metrics] = await Promise.all([getCoinRules({ page: 1, pageSize: 1000 }), getGamificationMetrics()]);
+      return { rules, metrics };
+    },
+  });
+  if (query.isLoading) return <AdminDataState title="coin metrics" loading />;
+  if (query.error) return <AdminDataState title="coin metrics" error={query.error} onRetry={() => void query.refetch()} />;
+  const metrics = [
+    { title: "Total Rules", value: String(query.data?.rules.total ?? 0), delta: "Live catalog", trend: "flat" as const },
+    { title: "Avg Coins / User", value: (query.data?.metrics.avgCoinsPerUser ?? 0).toLocaleString(), delta: "All users", trend: "flat" as const },
+    { title: "Total Coins Distributed", value: (query.data?.metrics.totalCoinsDistributed ?? 0).toLocaleString(), delta: "Current balances", trend: "flat" as const },
+    { title: "Top Earning Action", value: query.data?.metrics.topCoinAction || "Not tracked", delta: "Live schema", trend: "flat" as const },
+  ];
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">

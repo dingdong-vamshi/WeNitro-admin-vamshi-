@@ -1,4 +1,8 @@
+"use client";
+
 import { Suspense } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import { CalendarDays, Play, CheckCircle, XCircle } from "lucide-react";
 
 import { getEventAnalytics } from "@/lib/api";
@@ -10,19 +14,21 @@ import {
   EventsByCityChart,
 } from "@/components/charts/event-analytics-charts";
 import { AnalyticsFilters } from "@/components/admin/analytics-filters";
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import type { AnalyticsRange } from "@/types/admin";
-
-type Props = { searchParams: Promise<{ range?: string }> };
 
 const statIcons = [CalendarDays, Play, CheckCircle, XCircle];
 const statColors = ["text-chart-1", "text-chart-2", "text-chart-3", "text-destructive"];
 
-export default async function EventAnalyticsPage({ searchParams }: Props) {
-  const { range: rawRange } = await searchParams;
+export default function EventAnalyticsPage() {
+  const rawRange = useSearchParams().get("range");
   const range: AnalyticsRange =
     rawRange === "7d" || rawRange === "12m" ? rawRange : "30d";
 
-  const data = await getEventAnalytics(range);
+  const query = useQuery({ queryKey: ["event-analytics", range], queryFn: () => getEventAnalytics(range) });
+  if (query.isLoading) return <AdminDataState title="activity analytics" loading />;
+  if (query.error || !query.data) return <AdminDataState title="activity analytics" error={query.error} onRetry={() => void query.refetch()} />;
+  const data = query.data;
 
   const stats = [
     { label: "Total Events", value: data.stats.totalEvents.toLocaleString() },

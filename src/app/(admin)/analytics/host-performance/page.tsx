@@ -1,13 +1,20 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import { getHostPerformanceReportData } from "@/lib/api";
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { HostPerformanceReportTable } from "@/components/admin/host-performance-report-table";
 import { Users, Star, Trophy, CalendarCheck } from "lucide-react";
 
-export default async function HostPerformancePage() {
-  const data = await getHostPerformanceReportData();
+export default function HostPerformancePage() {
+  const query = useQuery({ queryKey: ["host-performance-summary"], queryFn: getHostPerformanceReportData });
+  if (query.isLoading) return <AdminDataState title="host performance" loading />;
+  if (query.error || !query.data) return <AdminDataState title="host performance" error={query.error} onRetry={() => void query.refetch()} />;
+  const data = query.data;
 
   const totalHosts      = data.length;
-  const avgScore        = Math.round(data.reduce((s, r) => s + r.score, 0) / totalHosts);
+  const avgScore        = totalHosts ? Math.round(data.reduce((s, r) => s + r.score, 0) / totalHosts) : 0;
   const topRated        = data.reduce((best, r) => (r.avgRating > best.avgRating ? r : best), data[0]);
   const totalParticipants = data.reduce((s, r) => s + r.totalParticipants, 0);
 

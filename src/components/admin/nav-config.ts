@@ -2,6 +2,7 @@ import {
   BarChart3,
   Bell,
   Briefcase,
+  Film,
   Gamepad2,
   Gauge,
   LayoutDashboard,
@@ -11,6 +12,7 @@ import {
   Users,
   CalendarDays,
   Settings,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -34,6 +36,7 @@ export const navSections: NavSection[] = [
     href: "/users",
     children: [
       { label: "All Users", href: "/users" },
+      { label: "Member Interests", href: "/users/interests" },
       { label: "Verified Users", href: "/users/verified" },
       { label: "Blocked Users", href: "/users/blocked" },
       { label: "Suspended Users", href: "/users/suspended" },
@@ -64,6 +67,27 @@ export const navSections: NavSection[] = [
       { label: "Investigation Panel", href: "/moderation/investigation" },
       { label: "Action Logs", href: "/moderation/action-logs" },
     ],
+  },
+  {
+    title: "Communities",
+    icon: Users,
+    href: "/communities",
+    children: [],
+  },
+  {
+    title: "Content",
+    icon: Film,
+    href: "/content/vibes",
+    children: [
+      { label: "Vibes", href: "/content/vibes" },
+      { label: "Stories", href: "/content/stories" },
+    ],
+  },
+  {
+    title: "Verification",
+    icon: ShieldCheck,
+    href: "/verification",
+    children: [],
   },
   {
     title: "Business",
@@ -161,6 +185,12 @@ export const routeTitleMap: Record<string, string> = {
   blocked: "Blocked Users",
   suspended: "Suspended Users",
   activity: "Activity History",
+  communities: "Communities",
+  content: "Content",
+  vibes: "Vibes",
+  stories: "Stories",
+  interests: "Member Interests",
+  verification: "Verification Review",
   events: "Activity Management",
   moderation: "Reports & Moderation",
   "reported-users": "Reported Users",
@@ -211,12 +241,6 @@ export const routeTitleMap: Record<string, string> = {
   "activity-logs": "Activity Logs",
   "access-control": "Access Control",
 };
-
-export const quickStats = [
-  { label: "Platform Health", value: "98.2%" },
-  { label: "Open Incidents", value: "04" },
-  { label: "Avg. Resolution", value: "3h 28m" },
-];
 
 export const roleMatrix = ["Super Admin", "Moderator", "Business Manager", "Support Agent"];
 

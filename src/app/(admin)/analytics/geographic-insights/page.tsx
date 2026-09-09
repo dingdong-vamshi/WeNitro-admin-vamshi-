@@ -1,4 +1,8 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import { getGeoReportData } from "@/lib/api";
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   GeoComparisonChart,
@@ -15,8 +19,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export default async function GeographicInsightsPage() {
-  const data = await getGeoReportData();
+export default function GeographicInsightsPage() {
+  const query = useQuery({ queryKey: ["geographic-insights"], queryFn: getGeoReportData });
+  if (query.isLoading) return <AdminDataState title="geographic insights" loading />;
+  if (query.error || !query.data) return <AdminDataState title="geographic insights" error={query.error} onRetry={() => void query.refetch()} />;
+  const data = query.data;
 
   const totalUsers   = data.usersByCity.reduce((s, r) => s + r.users, 0);
   const totalEvents  = data.eventsByCity.reduce((s, r) => s + r.events, 0);

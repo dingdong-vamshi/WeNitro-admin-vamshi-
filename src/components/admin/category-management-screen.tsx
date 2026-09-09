@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { PlusCircle, Pencil, Trash2, Ban, Save, X } from "lucide-react";
 
 import { getEventCategories } from "@/lib/api";
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import type { CategoryStatus, EventCategoryItem } from "@/types/admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,9 @@ export function CategoryManagementScreen() {
   const [editSaved, setEditSaved] = useState(false);
 
   const data = categories ?? query.data ?? [];
+
+  if (query.isLoading) return <AdminDataState title="activity categories" loading />;
+  if (query.isError) return <AdminDataState title="activity categories" error={query.error} onRetry={() => void query.refetch()} />;
 
   function openAdd() {
     setForm(emptyForm);
@@ -98,7 +102,7 @@ export function CategoryManagementScreen() {
             <CardTitle>Event Categories</CardTitle>
             <CardDescription>Manage categories displayed in the mobile app.</CardDescription>
           </div>
-          <Button size="sm" onClick={openAdd}>
+          <Button size="sm" disabled title="Category editing is not configured for this legacy schema">
             <PlusCircle className="h-4 w-4" />
             Add Category
           </Button>
@@ -137,7 +141,7 @@ export function CategoryManagementScreen() {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7"
-                        onClick={(e) => { e.stopPropagation(); openEdit(cat); }}
+                        disabled
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
@@ -145,7 +149,7 @@ export function CategoryManagementScreen() {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7"
-                        onClick={(e) => { e.stopPropagation(); handleToggleStatus(cat); }}
+                        disabled
                         title={cat.status === "active" ? "Disable" : "Enable"}
                       >
                         <Ban className="h-3.5 w-3.5" />
@@ -154,7 +158,7 @@ export function CategoryManagementScreen() {
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 text-destructive hover:text-destructive"
-                        onClick={(e) => { e.stopPropagation(); openDelete(cat); }}
+                        disabled
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -197,7 +201,7 @@ export function CategoryManagementScreen() {
                 ))}
               </dl>
               <div className="flex gap-2 pt-2">
-                <Button size="sm" className="flex-1" onClick={() => openEdit(selected)}>
+                <Button size="sm" className="flex-1" disabled>
                   <Pencil className="h-3.5 w-3.5" />
                   Edit
                 </Button>
@@ -205,7 +209,7 @@ export function CategoryManagementScreen() {
                   size="sm"
                   variant="outline"
                   className="flex-1"
-                  onClick={() => handleToggleStatus(selected)}
+                  disabled
                 >
                   <Ban className="h-3.5 w-3.5" />
                   {selected.status === "active" ? "Disable" : "Enable"}
@@ -213,7 +217,7 @@ export function CategoryManagementScreen() {
                 <Button
                   size="sm"
                   variant="destructive"
-                  onClick={() => openDelete(selected)}
+                  disabled
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>

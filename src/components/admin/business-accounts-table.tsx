@@ -6,7 +6,6 @@ import { Building2, ChevronDown, ExternalLink, MapPin, Search } from "lucide-rea
 import { useRouter } from "next/navigation";
 
 import { getBusinessAccounts } from "@/lib/api";
-import { businessAccounts as seed } from "@/lib/mock-data";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -62,15 +61,15 @@ export function BusinessAccountsTable({ initialStatus = "all" }: { initialStatus
   const debouncedSearch = useDebounce(search);
   const router = useRouter();
 
-  const cityOptions = useMemo(
-    () => ["all", ...Array.from(new Set(seed.map((b) => b.city))).sort()],
-    [],
-  );
-
   const query = useQuery({
     queryKey: ["business-accounts", debouncedSearch, status, industry, city, page, pageSize],
     queryFn: () => getBusinessAccounts({ search: debouncedSearch, status, industry, city, page, pageSize }),
   });
+
+  const cityOptions = useMemo(
+    () => ["all", ...Array.from(new Set((query.data?.rows ?? []).map((business) => business.city).filter(Boolean))).sort()],
+    [query.data?.rows],
+  );
 
   const totalPages = useMemo(() => {
     if (!query.data) return 1;

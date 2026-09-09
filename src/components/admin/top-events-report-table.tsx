@@ -17,15 +17,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-const CATEGORIES = [
-  "Adventure", "Business", "Music", "Social", "Sports", "Wellness",
-];
-
-const CITIES = [
-  "Bangalore", "Boston", "Denver", "Goa", "Mumbai",
-  "Nashville", "Portland", "Pune", "San Francisco",
-];
-
 const selectBaseClass =
   "h-9 appearance-none rounded-lg border border-border/70 bg-background pl-9 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40";
 
@@ -44,6 +35,8 @@ export function TopEventsReportTable() {
   const [page, setPage] = useState(1);
 
   const debouncedSearch = useDebounce(search, 300);
+  const cities = useMemo(() => Array.from(new Set(data.map((row) => row.city).filter(Boolean))).sort(), [data]);
+  const categories = useMemo(() => Array.from(new Set(data.map((row) => row.category).filter(Boolean))).sort(), [data]);
 
   const filtered = useMemo(() => {
     return data.filter((row) => {
@@ -96,7 +89,7 @@ export function TopEventsReportTable() {
               className={selectBaseClass}
             >
               <option value="all">City</option>
-              {CITIES.map((c) => (
+              {cities.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
@@ -115,7 +108,7 @@ export function TopEventsReportTable() {
               className={selectBaseClass}
             >
               <option value="all">Category</option>
-              {CATEGORIES.map((c) => (
+              {categories.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>

@@ -5,8 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Building2, ChevronDown, ExternalLink, MapPin, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { getSponsoredEvents } from "@/lib/api";
-import { sponsoredEvents as seed, businessAccounts } from "@/lib/mock-data";
+import { getBusinessAccounts, getSponsoredEvents } from "@/lib/api";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,11 +64,6 @@ export function SponsoredEventsTable({
   const debouncedSearch = useDebounce(search);
   const router = useRouter();
 
-  const cityOptions = useMemo(
-    () => ["all", ...Array.from(new Set(seed.map((e) => e.city))).sort()],
-    [],
-  );
-
   const query = useQuery({
     queryKey: ["sponsored-events", debouncedSearch, status, selectedBusiness, city, page, pageSize],
     queryFn: () =>
@@ -82,6 +76,16 @@ export function SponsoredEventsTable({
         pageSize,
       }),
   });
+
+  const businessesQuery = useQuery({
+    queryKey: ["business-accounts", "sponsored-event-filter"],
+    queryFn: () => getBusinessAccounts({ page: 1, pageSize: 1000 }),
+  });
+
+  const cityOptions = useMemo(
+    () => ["all", ...Array.from(new Set((query.data?.rows ?? []).map((event) => event.city).filter(Boolean))).sort()],
+    [query.data?.rows],
+  );
 
   const totalPages = useMemo(() => {
     if (!query.data) return 1;
@@ -136,7 +140,7 @@ export function SponsoredEventsTable({
                   className={selectBaseClass}
                 >
                   <option value="all">All Businesses</option>
-                  {businessAccounts.map((b) => (
+                  {(businessesQuery.data?.rows ?? []).map((b) => (
                     <option key={b.id} value={b.id}>{b.name}</option>
                   ))}
                 </select>

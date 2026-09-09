@@ -1,20 +1,26 @@
+"use client";
+
 import { Suspense } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 import { Eye, CalendarCheck, Share2, Bookmark } from "lucide-react";
 
 import { getEventEngagementData } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EventEngagementChart } from "@/components/charts/reports-charts";
 import { AnalyticsFilters } from "@/components/admin/analytics-filters";
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import type { AnalyticsRange } from "@/types/admin";
 
-type Props = { searchParams: Promise<{ range?: string }> };
-
-export default async function EventEngagementPage({ searchParams }: Props) {
-  const { range: rawRange } = await searchParams;
+export default function EventEngagementPage() {
+  const rawRange = useSearchParams().get("range");
   const range: AnalyticsRange =
     rawRange === "7d" || rawRange === "12m" ? rawRange : "30d";
 
-  const data = await getEventEngagementData(range);
+  const query = useQuery({ queryKey: ["event-engagement", range], queryFn: () => getEventEngagementData(range) });
+  if (query.isLoading) return <AdminDataState title="activity engagement" loading />;
+  if (query.error || !query.data) return <AdminDataState title="activity engagement" error={query.error} onRetry={() => void query.refetch()} />;
+  const data = query.data;
 
   const stats = [
     { label: "Total Views",     value: data.stats.totalViews.toLocaleString(),    Icon: Eye,         color: "text-chart-1" },

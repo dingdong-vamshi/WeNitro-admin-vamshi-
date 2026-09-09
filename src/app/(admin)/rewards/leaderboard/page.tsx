@@ -1,16 +1,30 @@
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import { Trophy } from "lucide-react";
 
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import { LeaderboardTable } from "@/components/admin/leaderboard-table";
 import { MetricCard } from "@/components/admin/metric-card";
-
-const metrics = [
-  { title: "Total Participants", value: "3,200", delta: "Active reward users", trend: "up" as const },
-  { title: "Coins Distributed", value: "1.24M", delta: "+9.1%", trend: "up" as const },
-  { title: "Top Score (Monthly)", value: "4,200", delta: "Rahul S.", trend: "up" as const },
-  { title: "Avg Coins / User", value: "387", delta: "This month", trend: "flat" as const },
-];
+import { getGamificationMetrics, getLeaderboard } from "@/lib/api";
 
 export default function LeaderboardPage() {
+  const query = useQuery({
+    queryKey: ["leaderboard-page-metrics"],
+    queryFn: async () => {
+      const [entries, gamification] = await Promise.all([getLeaderboard("monthly"), getGamificationMetrics()]);
+      return { entries, gamification };
+    },
+  });
+  if (query.isLoading) return <AdminDataState title="leaderboard metrics" loading />;
+  if (query.error) return <AdminDataState title="leaderboard metrics" error={query.error} onRetry={() => void query.refetch()} />;
+  const top = query.data?.entries[0];
+  const metrics = [
+    { title: "Total Participants", value: String(query.data?.entries.length ?? 0), delta: "Live users", trend: "flat" as const },
+    { title: "Coins Distributed", value: (query.data?.gamification.totalCoinsDistributed ?? 0).toLocaleString(), delta: "Current balances", trend: "flat" as const },
+    { title: "Top Score (Monthly)", value: (top?.coinsEarned ?? 0).toLocaleString(), delta: top?.name ?? "No ranked users", trend: "flat" as const },
+    { title: "Avg Coins / User", value: (query.data?.gamification.avgCoinsPerUser ?? 0).toLocaleString(), delta: "All users", trend: "flat" as const },
+  ];
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">

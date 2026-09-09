@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Award, ChevronDown, Coins, Edit2, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
 
 import { getAchievementBadges } from "@/lib/api";
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import type { AchievementBadge, BadgeStatus } from "@/types/admin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -59,11 +60,12 @@ export function AchievementBadgesTable() {
     queryKey: ["achievement-badges", debouncedSearch, status, page, pageSize],
     queryFn: () => getAchievementBadges({ search: debouncedSearch, status, page, pageSize }),
   });
-
   const totalPages = useMemo(() => {
     if (!query.data) return 1;
     return Math.max(1, Math.ceil(query.data.total / pageSize));
-  }, [query.data]);
+  }, [query.data, pageSize]);
+
+  if (query.isError) return <AdminDataState title="achievement badges" error={query.error} onRetry={() => void query.refetch()} />;
 
   function openEdit(badge: AchievementBadge) {
     setEditTarget(badge);
@@ -162,7 +164,7 @@ export function AchievementBadgesTable() {
               </select>
               <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             </div>
-            <Button size="sm" onClick={() => { setForm(emptyForm); setAddOpen(true); }} className="gap-1.5">
+            <Button size="sm" disabled title="Badge editing is not configured for this legacy schema" className="gap-1.5">
               <Plus className="h-4 w-4" />
               Create Badge
             </Button>
@@ -223,7 +225,7 @@ export function AchievementBadgesTable() {
                     <td className="py-3 pl-3 pr-4 text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" disabled title="Badge editing is not configured">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
