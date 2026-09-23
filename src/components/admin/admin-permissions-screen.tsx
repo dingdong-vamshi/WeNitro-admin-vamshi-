@@ -15,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 const allRoles: AdminRoleType[] = [
   "Super Admin",
+  "Finance Admin",
   "Moderator",
   "Support Admin",
   "Content Manager",

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { createContext, FormEvent, useContext, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 
 import { Button } from "@/components/ui/button";
@@ -20,15 +20,30 @@ type AuthState =
   | { status: "authorized"; session: Session }
   | { status: "unauthorized"; session: Session };
 
-const ADMIN_ROLES = new Set(["admin", "super_admin"]);
+export type AdminRole = "admin" | "super_admin" | "finance_admin";
+
+type AdminAuthContextValue = {
+  session: Session;
+  role: AdminRole;
+  signOut: () => Promise<void>;
+};
+
+const AdminAuthContext = createContext<AdminAuthContextValue | null>(null);
+const ADMIN_ROLES = new Set<AdminRole>(["admin", "super_admin", "finance_admin"]);
+
+export function useAdminAuth() {
+  const value = useContext(AdminAuthContext);
+  if (!value) throw new Error("useAdminAuth must be used inside AdminAuthGate.");
+  return value;
+}
 
 function resolveAuthState(session: Session | null): AuthState {
   if (!session) {
     return { status: "signed-out" };
   }
 
-  const role = session.user.app_metadata?.role;
-  return ADMIN_ROLES.has(role)
+  const role = session.user.app_metadata?.role as AdminRole | undefined;
+  return role && ADMIN_ROLES.has(role)
     ? { status: "authorized", session }
     : { status: "unauthorized", session };
 }
@@ -95,6 +110,18 @@ export function AdminAuthGate({ children }: { children: React.ReactNode }) {
     if (signOutError) setError(signOutError.message);
   }
 
+  const contextValue = useMemo<AdminAuthContextValue | null>(() => {
+    if (authState.status !== "authorized") return null;
+    return {
+      session: authState.session,
+      role: authState.session.user.app_metadata.role as AdminRole,
+      signOut: async () => {
+        const { error: signOutError } = await supabase.auth.signOut();
+        if (signOutError) throw signOutError;
+      },
+    };
+  }, [authState]);
+
   if (authState.status === "loading") {
     return (
       <AuthBackdrop>
@@ -107,7 +134,7 @@ export function AdminAuthGate({ children }: { children: React.ReactNode }) {
   }
 
   if (authState.status === "authorized") {
-    return <>{children}</>;
+    return <AdminAuthContext.Provider value={contextValue}>{children}</AdminAuthContext.Provider>;
   }
 
   if (authState.status === "unauthorized") {
@@ -149,7 +176,7 @@ export function AdminAuthGate({ children }: { children: React.ReactNode }) {
           </div>
           <CardTitle className="font-mono text-2xl">Admin sign in</CardTitle>
           <CardDescription>
-            Use an account with an admin or super-admin role to continue.
+            Use an account with an admin, super-admin, or finance-admin role to continue.
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -23,6 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 const roleColors: Record<string, string> = {
   "Super Admin": "text-rose-600 dark:text-rose-400 bg-rose-500/15 border-rose-200 dark:border-rose-900/50",
+  "Finance Admin": "text-cyan-600 dark:text-cyan-400 bg-cyan-500/15 border-cyan-200 dark:border-cyan-900/50",
   Moderator: "text-amber-600 dark:text-amber-400 bg-amber-500/15 border-amber-200 dark:border-amber-900/50",
   "Support Admin": "text-sky-600 dark:text-sky-400 bg-sky-500/15 border-sky-200 dark:border-sky-900/50",
   "Content Manager": "text-violet-600 dark:text-violet-400 bg-violet-500/15 border-violet-200 dark:border-violet-900/50",

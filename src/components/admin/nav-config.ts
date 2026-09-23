@@ -15,12 +15,18 @@ import {
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
+import type { AdminRole } from "@/components/AdminAuthGate";
+
+const OPERATIONS_ROLES: AdminRole[] = ["super_admin", "admin"];
+const FINANCE_ROLES: AdminRole[] = ["super_admin", "finance_admin"];
+const ALL_ADMIN_ROLES: AdminRole[] = ["super_admin", "admin", "finance_admin"];
 
 export type NavSection = {
   title: string;
   icon: LucideIcon;
   href: string;
-  children?: Array<{ label: string; href: string }>;
+  allowedRoles?: AdminRole[];
+  children?: Array<{ label: string; href: string; allowedRoles?: AdminRole[] }>;
 };
 
 export const navSections: NavSection[] = [
@@ -94,11 +100,13 @@ export const navSections: NavSection[] = [
     icon: Briefcase,
     href: "/business",
     children: [
-      { label: "Business Accounts", href: "/business" },
-      { label: "Sponsored Events", href: "/business/sponsored-events" },
-      { label: "Revenue Analytics", href: "/business/revenue" },
-      { label: "Transaction History", href: "/business/transactions" },
+      { label: "Partner Applications", href: "/business", allowedRoles: OPERATIONS_ROLES },
+      { label: "Sponsored Events", href: "/business/sponsored-events", allowedRoles: OPERATIONS_ROLES },
+      { label: "Partner Finance", href: "/business/revenue", allowedRoles: FINANCE_ROLES },
+      { label: "Financial Ledger", href: "/business/transactions", allowedRoles: FINANCE_ROLES },
+      { label: "Settlements", href: "/business/settlements", allowedRoles: FINANCE_ROLES },
     ],
+    allowedRoles: ALL_ADMIN_ROLES,
   },
   {
     title: "Rewards & Gamification",
@@ -175,8 +183,40 @@ export const navSections: NavSection[] = [
       { label: "Activity Logs", href: "/admins/activity-logs" },
       { label: "Access Control", href: "/admins/access-control" },
     ],
+    allowedRoles: [],
   },
 ];
+
+const routeRules: Array<{ prefix: string; roles: AdminRole[] }> = [
+  { prefix: "/business/sponsored-events", roles: OPERATIONS_ROLES },
+  { prefix: "/business/revenue", roles: FINANCE_ROLES },
+  { prefix: "/business/transactions", roles: FINANCE_ROLES },
+  { prefix: "/business/settlements", roles: FINANCE_ROLES },
+  { prefix: "/business", roles: OPERATIONS_ROLES },
+  // These screens are local mock state only. Keep them unreachable until a
+  // server-authoritative provisioning and permissions workflow is shipped.
+  { prefix: "/admins", roles: [] },
+];
+
+export function isAdminPathAllowed(pathname: string, role: AdminRole) {
+  const rule = routeRules.find(({ prefix }) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  if (rule) return rule.roles.includes(role);
+  return OPERATIONS_ROLES.includes(role);
+}
+
+export function defaultAdminPath(role: AdminRole) {
+  return role === "finance_admin" ? "/business/revenue" : "/dashboard";
+}
+
+export function navSectionsForRole(role: AdminRole): NavSection[] {
+  return navSections.flatMap((section) => {
+    const children = section.children?.filter((child) =>
+      (child.allowedRoles ?? section.allowedRoles ?? OPERATIONS_ROLES).includes(role));
+    const sectionAllowed = (section.allowedRoles ?? OPERATIONS_ROLES).includes(role);
+    if (!sectionAllowed && !children?.length) return [];
+    return [{ ...section, children }];
+  });
+}
 
 export const routeTitleMap: Record<string, string> = {
   dashboard: "Dashboard",
@@ -201,6 +241,7 @@ export const routeTitleMap: Record<string, string> = {
   investigation: "Investigation Panel",
   "action-logs": "Action Logs",
   business: "Business / Host Management",
+  settlements: "Partner Settlements",
   monetization: "Monetization Management",
   rewards: "Rewards & Gamification",
   coins: "Coins Distribution",

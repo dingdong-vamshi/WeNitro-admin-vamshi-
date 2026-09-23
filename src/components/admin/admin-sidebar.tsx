@@ -5,13 +5,16 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ChevronDown, CircleCheck, X } from "lucide-react";
 
-import { navSections } from "@/components/admin/nav-config";
+import { navSectionsForRole } from "@/components/admin/nav-config";
+import { useAdminAuth } from "@/components/AdminAuthGate";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/store/ui-store";
 
 export function AdminSidebar() {
+  const { role } = useAdminAuth();
+  const navSections = navSectionsForRole(role);
   const pathname = usePathname();
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
   const mobileOpen = useUiStore((state) => state.mobileSidebarOpen);
@@ -69,6 +72,7 @@ export function AdminSidebar() {
                 const Icon = section.icon;
                 const active = pathname.startsWith(section.href);
                 const hasChildren = Boolean(section.children?.length);
+                const sectionHref = section.children?.[0]?.href ?? section.href;
                 const itemClass = cn(
                   "group flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] font-medium text-[#5f5e5b] transition-colors hover:bg-[#efefed] hover:text-[#202020]",
                   active && "bg-[#efefed] font-semibold text-[#202020]",
@@ -79,7 +83,7 @@ export function AdminSidebar() {
                   return (
                     <Tooltip key={section.title}>
                       <TooltipTrigger asChild>
-                        <Link href={section.href} className={itemClass} onClick={() => setMobileOpen(false)}>
+                        <Link href={sectionHref} className={itemClass} onClick={() => setMobileOpen(false)}>
                           <span className={cn(
                             "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[#dededb] bg-white text-[#202020] shadow-[0_2px_3px_rgb(24_24_27/0.10),inset_0_1px_0_white] transition-all group-hover:-translate-y-px group-hover:shadow-[0_3px_5px_rgb(24_24_27/0.14)]",
                             active && "border-black bg-[#202020] text-white shadow-[0_3px_0_#000,0_5px_8px_rgb(24_24_27/0.16)]",

@@ -23,6 +23,7 @@ import {
 
 const roles: AdminRoleType[] = [
   "Super Admin",
+  "Finance Admin",
   "Moderator",
   "Support Admin",
   "Content Manager",

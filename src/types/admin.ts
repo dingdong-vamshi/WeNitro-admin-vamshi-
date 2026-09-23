@@ -541,6 +541,100 @@ export type BusinessTransaction = {
   paidAt: string | null;
 };
 
+// ── Partner V1 administration ────────────────────────────────────────────────
+
+export type PartnerApplicationStatus =
+  | "DRAFT"
+  | "UNDER_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | "SUSPENDED";
+
+export type PartnerPayoutReviewStatus =
+  | "UNDER_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | "ON_HOLD";
+
+export type PartnerPayoutSummary = {
+  bankName: string;
+  accountHolderName: string;
+  accountNumberMasked: string;
+  ifscMasked: string;
+  upiIdMasked: string;
+  reviewStatus: PartnerPayoutReviewStatus;
+  reviewReason: string | null;
+};
+
+export type PartnerApplication = {
+  userId: number;
+  businessName: string;
+  description: string;
+  city: string;
+  activityTypes: string[];
+  activityLocation: string;
+  ageCategory: string;
+  status: PartnerApplicationStatus;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  decisionReason: string | null;
+  applicant: {
+    fullName: string;
+    username: string;
+    email: string;
+    phone: string;
+  };
+  payoutAccount: PartnerPayoutSummary | null;
+};
+
+export type PartnerApplicationHistoryEntry = {
+  id: string;
+  userId: number;
+  fromStatus: PartnerApplicationStatus | null;
+  toStatus: PartnerApplicationStatus;
+  reason: string | null;
+  actorUserId: number | null;
+  createdAt: string;
+};
+
+export type PartnerSettlementStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "PAID"
+  | "FAILED"
+  | "ON_HOLD";
+
+export type PartnerFinanceRow = {
+  settlementId: number;
+  eventId: number;
+  activityTitle: string;
+  partnerUserId: number;
+  partnerName: string;
+  businessName: string;
+  status: PartnerSettlementStatus;
+  grossPaisa: number;
+  platformFeePaisa: number;
+  gstPaisa: number;
+  refundPaisa: number;
+  expectedNetPaisa: number;
+  eligibleAt: string | null;
+  dueAt: string | null;
+  paidAt: string | null;
+  payoutReference: string | null;
+  note: string | null;
+};
+
+export type PartnerFinanceConfig = {
+  platformFeeBps: number;
+  gstEnabled: boolean;
+  gstBps: number;
+  gstBasis: "disabled" | "gross" | "platform_fee";
+  settlementDays: number;
+  updatedAt: string | null;
+};
+
+export type AdminAppRole = "admin" | "super_admin" | "finance_admin" | null;
+
 // ── Analytics Module ─────────────────────────────────────────────────────────
 
 export type AnalyticsRange = "7d" | "30d" | "12m";
@@ -1063,6 +1157,7 @@ export type AdminAccountStatus = "active" | "inactive" | "suspended";
 
 export type AdminRoleType =
   | "Super Admin"
+  | "Finance Admin"
   | "Moderator"
   | "Support Admin"
   | "Content Manager"

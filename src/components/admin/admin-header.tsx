@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Bell, ChevronDown, HelpCircle, Menu, Search } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -13,10 +14,29 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useUiStore } from "@/store/ui-store";
+import { useAdminAuth } from "@/components/AdminAuthGate";
 
 export function AdminHeader() {
+  const { role, session, signOut } = useAdminAuth();
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   const toggleMobileSidebar = useUiStore((state) => state.toggleMobileSidebar);
+  const label = role.replaceAll("_", " ").replace(/(^|\s)\S/g, (letter) => letter.toUpperCase());
+  const email = session.user.email ?? "Admin account";
+  const initials = label.split(" ").map((word) => word[0]).join("").slice(0, 2);
+
+  async function handleSignOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    setSignOutError(null);
+    try {
+      await signOut();
+    } catch (error) {
+      setSignOutError(error instanceof Error ? error.message : "Sign out failed.");
+      setSigningOut(false);
+    }
+  }
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-white/95 backdrop-blur-xl">
@@ -61,11 +81,11 @@ export function AdminHeader() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-10 gap-2 rounded-lg px-2">
                 <Avatar className="h-8 w-8 ring-2 ring-primary/15">
-                  <AvatarFallback>SA</AvatarFallback>
+                  <AvatarFallback>{initials}</AvatarFallback>
                 </Avatar>
                 <div className="hidden text-left md:block">
-                  <p className="text-[11px] font-semibold">Super Admin</p>
-                  <p className="text-[10px] text-muted-foreground">Platform owner</p>
+                  <p className="text-[11px] font-semibold">{label}</p>
+                  <p className="max-w-36 truncate text-[10px] text-muted-foreground">{email}</p>
                 </div>
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
               </Button>
@@ -74,7 +94,10 @@ export function AdminHeader() {
               <DropdownMenuItem>Admin profile</DropdownMenuItem>
               <DropdownMenuItem>Settings</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Logout</DropdownMenuItem>
+              <DropdownMenuItem disabled={signingOut} onSelect={() => void handleSignOut()}>
+                {signingOut ? "Signing out…" : "Logout"}
+              </DropdownMenuItem>
+              {signOutError ? <p className="max-w-64 px-2 py-1 text-xs text-destructive">{signOutError}</p> : null}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
