@@ -1,10 +1,12 @@
 import { SectionShell } from "@/components/admin/section-shell";
 import { SecurityInsightsSection } from "@/components/admin/security-insights";
+import { AnonymousCommunityPosts } from "@/components/admin/anonymous-community-posts";
 
 export default function SecurityPage() {
   return (
     <div className="space-y-6">
       <SecurityInsightsSection />
+      <AnonymousCommunityPosts />
       <SectionShell
         title="Safety & Security"
         description="Investigate abuse signals, block bad actors, and maintain audit visibility."
