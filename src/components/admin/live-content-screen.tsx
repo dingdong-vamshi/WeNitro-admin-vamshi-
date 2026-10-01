@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleUserRound, Clock3, Film, Heart, ShieldCheck, Sparkles, UsersRound } from "lucide-react";
 
@@ -8,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getCommunities, getStories, getUserInterests, getVerificationSubmissions, getVibes, reviewVerification } from "@/lib/api";
+import { getCommunities, getStories, getUserInterests, getVerificationSubmissions, getVerificationPreview, getVibes, reviewVerification } from "@/lib/api";
 
 type ScreenKind = "communities" | "vibes" | "stories" | "interests" | "verification";
 
@@ -66,14 +68,26 @@ function InterestsTable({ rows }: { rows: Awaited<ReturnType<typeof getUserInter
 
 function VerificationTable({ rows }: { rows: Awaited<ReturnType<typeof getVerificationSubmissions>> }) {
   const queryClient = useQueryClient();
+  const [preview, setPreview] = useState<{ id: number; url: string } | null>(null);
+  const [previewError, setPreviewError] = useState("");
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const openPreview = async (id: number) => {
+    setPreviewBusy(true); setPreviewError(""); setPreview(null);
+    try { setPreview({ id, url: await getVerificationPreview(id) }); }
+    catch (error) { setPreviewError(error instanceof Error ? error.message : "Preview unavailable"); }
+    finally { setPreviewBusy(false); }
+  };
   const review = useMutation({
     mutationFn: ({ id, status }: { id: number; status: "approved" | "rejected" }) => reviewVerification(id, status),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["live-admin", "verification"] }),
   });
   return (
+    <><p className="p-4 text-sm text-muted-foreground">Review the private image before approving. A selfie review does not verify Aadhaar or complete all identity stages.</p>
+    {(previewError || review.error) && <p role="alert" className="p-4 text-destructive">{previewError || (review.error instanceof Error ? review.error.message : "Review failed")}</p>}
+    {preview && <div className="space-y-3 p-4"><p>Private submission #{preview.id} · preview link expires in 5 minutes</p><iframe title={`Private verification ${preview.id}`} src={preview.url} className="h-96 w-full rounded border" referrerPolicy="no-referrer" /><Button variant="outline" onClick={() => setPreview(null)}>Close private preview</Button></div>}
     <Table><TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Member ID</TableHead><TableHead>Type</TableHead><TableHead>Status</TableHead><TableHead>Document</TableHead><TableHead>Submitted</TableHead><TableHead>Reviewed</TableHead><TableHead>Action</TableHead></TableRow></TableHeader>
-      <TableBody>{rows.map((row) => <TableRow key={row.id}><TableCell className="font-mono text-xs">{row.id}</TableCell><TableCell>{row.user_id}</TableCell><TableCell>{row.verification_type}</TableCell><TableCell><StatusBadge value={row.status} /></TableCell><TableCell className="max-w-40 truncate">{pathName(row.document_path)}</TableCell><TableCell>{date(row.submitted_at || row.created_at)}</TableCell><TableCell>{date(row.reviewed_at)}</TableCell><TableCell>{["submitted", "under_review"].includes(row.status) ? <div className="flex gap-2"><Button size="sm" disabled={review.isPending} onClick={() => review.mutate({ id: Number(row.id), status: "approved" })}>Approve</Button><Button size="sm" variant="outline" disabled={review.isPending} onClick={() => review.mutate({ id: Number(row.id), status: "rejected" })}>Reject</Button></div> : "Complete"}</TableCell></TableRow>)}</TableBody>
-    </Table>
+      <TableBody>{rows.map((row) => <TableRow key={row.id}><TableCell className="font-mono text-xs">{row.id}</TableCell><TableCell>{row.user_id}</TableCell><TableCell>{row.verification_type}</TableCell><TableCell><StatusBadge value={row.status} /></TableCell><TableCell className="max-w-40 truncate">{pathName(row.document_path)}{row.document_path && <Button size="sm" variant="outline" disabled={previewBusy} onClick={() => void openPreview(Number(row.id))}>View private submission</Button>}</TableCell><TableCell>{date(row.submitted_at || row.created_at)}</TableCell><TableCell>{date(row.reviewed_at)}</TableCell><TableCell>{["submitted", "under_review"].includes(row.status) ? <div className="flex gap-2"><Button size="sm" disabled={review.isPending} onClick={() => review.mutate({ id: Number(row.id), status: "approved" })}>Approve</Button><Button size="sm" variant="outline" disabled={review.isPending} onClick={() => review.mutate({ id: Number(row.id), status: "rejected" })}>Reject</Button></div> : "Complete"}</TableCell></TableRow>)}</TableBody>
+    </Table></>
   );
 }
 

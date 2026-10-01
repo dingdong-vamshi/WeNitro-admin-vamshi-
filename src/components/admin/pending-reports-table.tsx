@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ClipboardList, MoreHorizontal, Search, ShieldAlert, UserCog, CheckCircle2, ArrowUpCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { getPendingReportItems } from "@/lib/api";
+import { getPendingReportItems, reviewVibeReport } from "@/lib/api";
 import { AdminDataState } from "@/components/admin/admin-data-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ const typeVariant = {
   user: "info",
   event: "warning",
   chat: "danger",
+  vibe: "warning",
 } as const;
 
 const typeTabs = [
@@ -29,10 +30,13 @@ const typeTabs = [
   { label: "Users", value: "user" },
   { label: "Events", value: "event" },
   { label: "Chat", value: "chat" },
+  { label: "Vibes", value: "vibe" },
 ] as const;
 
 export function PendingReportsTable() {
-  const [filter, setFilter] = useState<"all" | "user" | "event" | "chat">("all");
+  const [filter, setFilter] = useState<"all" | "user" | "event" | "chat" | "vibe">("all");
+  const [actionError, setActionError] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const router = useRouter();
@@ -41,6 +45,13 @@ export function PendingReportsTable() {
     queryKey: ["pending-reports", filter, page, pageSize],
     queryFn: () => getPendingReportItems({ type: filter, page, pageSize }),
   });
+  const review = async (id: string, status: 'reviewing' | 'resolved' | 'dismissed') => {
+    if (busyId) return;
+    setBusyId(id); setActionError('');
+    try { await reviewVibeReport(id, status); await query.refetch(); }
+    catch (error) { setActionError(error instanceof Error ? error.message : 'Review failed'); }
+    finally { setBusyId(null); }
+  };
   const totalPages = useMemo(() => {
     if (!query.data) return 1;
     return Math.max(1, Math.ceil(query.data.total / pageSize));
@@ -53,6 +64,7 @@ export function PendingReportsTable() {
 
   return (
     <div className="space-y-4">
+      {actionError && <p role="alert" className="text-sm text-red-600">{actionError}</p>}
       <div className="overflow-hidden rounded-xl border border-border/70 bg-card">
         {/* Filter bar */}
         <div className="flex flex-col gap-3 border-b border-border/70 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
@@ -115,7 +127,7 @@ export function PendingReportsTable() {
                 <TableCell className="py-3">
                   <Badge variant={typeVariant[report.type]} className="capitalize">{report.type}</Badge>
                 </TableCell>
-                <TableCell className="py-3 text-sm font-medium">{report.reportedItem}</TableCell>
+                <TableCell className="py-3 text-sm font-medium">{report.reportedItem}<p className="text-xs text-muted-foreground">{report.reason}: {report.details}</p></TableCell>
                 <TableCell className="py-3 text-sm text-muted-foreground">{report.date}</TableCell>
                 <TableCell className="py-3">
                   {report.assignedTo ? (
@@ -125,7 +137,12 @@ export function PendingReportsTable() {
                   )}
                 </TableCell>
                 <TableCell className="pr-4 py-3 text-right">
-                  <DropdownMenu>
+                  {report.type === 'vibe' ? <div className="flex flex-wrap justify-end gap-2">
+                    <a className="text-sm underline" href={`https://wenitro-app.vercel.app/share/vibe/${report.reportedItemId}`} target="_blank" rel="noreferrer">Open Vibe</a>
+                    <Button size="sm" variant="outline" disabled={!!busyId} onClick={() => void review(report.id, 'reviewing')}>Review</Button>
+                    <Button size="sm" variant="outline" disabled={!!busyId} onClick={() => void review(report.id, 'resolved')}>Resolve</Button>
+                    <Button size="sm" variant="outline" disabled={!!busyId} onClick={() => void review(report.id, 'dismissed')}>Dismiss</Button>
+                  </div> : <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md bg-muted/50">
                         <MoreHorizontal className="h-4 w-4" />
@@ -146,7 +163,7 @@ export function PendingReportsTable() {
                         <ArrowUpCircle className="mr-2 h-3.5 w-3.5" /> Escalate
                       </DropdownMenuItem>
                     </DropdownMenuContent>
-                  </DropdownMenu>
+                  </DropdownMenu>}
                 </TableCell>
               </TableRow>
             ))}

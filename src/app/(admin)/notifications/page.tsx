@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getNotificationStats } from "@/lib/api";
+import { LoginAnnouncements } from "@/components/admin/login-announcements";
 import { AdminDataState } from "@/components/admin/admin-data-state";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -37,14 +38,7 @@ export default function NotificationsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Broadcast delivery</CardTitle>
-          <CardDescription>
-            Broadcast campaigns are not configured in the production schema, so this Admin does not simulate sending them.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <LoginAnnouncements />
     </div>
   );
 }

@@ -303,11 +303,14 @@ export type ImageModerationItem = {
 
 export type PendingReportItem = {
   id: string;
-  type: "user" | "event" | "chat";
+  type: "user" | "event" | "chat" | "vibe";
   reportedItem: string;
   reportedItemId: string;
   date: string;
   assignedTo?: string;
+  reason?: string;
+  details?: string;
+  status?: string;
 };
 
 export type InvestigationCase = {

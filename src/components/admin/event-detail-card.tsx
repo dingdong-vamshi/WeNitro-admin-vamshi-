@@ -1,6 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { correctActivityCategory, getEventCategories } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
 import {
   CalendarDays,
   Camera,
@@ -37,6 +41,33 @@ const categoryLabel: Record<string, string> = {
 };
 
 export function EventDetailCard({ event }: { event: EventDetail }) {
+  const queryClient = useQueryClient();
+  const categories = useQuery({ queryKey: ['event-categories'], queryFn: getEventCategories });
+  const [categoryId, setCategoryId] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [categoryMessage, setCategoryMessage] = useState('');
+  const [pinError, setPinError] = useState('');
+  const togglePin = async () => {
+    if (saving) return; setSaving(true); setPinError('');
+    try {
+      const result = await supabase.rpc('admin_set_activity_pinned', { p_event_id: Number(event.id), p_pinned: !event.isFeatured });
+      if (result.error) throw result.error;
+      await queryClient.invalidateQueries({ queryKey: ['activity-detail', event.id] });
+      await queryClient.invalidateQueries({ queryKey: ['events'] });
+    } catch (error) { setPinError(error instanceof Error ? error.message : 'Could not update pin.'); }
+    finally { setSaving(false); }
+  };
+  const saveCategory = async () => {
+    if (!categoryId || saving) return;
+    setSaving(true); setCategoryMessage('');
+    try {
+      const result = await correctActivityCategory(event.id, categoryId);
+      setCategoryMessage(`Category saved: ${result.category}`);
+      await queryClient.invalidateQueries({ queryKey: ['activity-detail', event.id] });
+      await queryClient.invalidateQueries({ queryKey: ['events'] });
+    } catch (error) { setCategoryMessage(error instanceof Error ? error.message : 'Category update failed'); }
+    finally { setSaving(false); }
+  };
   return (
     <>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -51,6 +82,8 @@ export function EventDetailCard({ event }: { event: EventDetail }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {(event.status === 'upcoming' || event.isFeatured) && <Button variant="outline" size="sm" disabled={saving} onClick={() => void togglePin()}>{event.isFeatured ? 'Unpin Activity' : 'Pin upcoming Activity'}</Button>}
+          {pinError && <p role="alert" className="text-sm text-destructive">{pinError}</p>}
           <Button asChild variant="outline" size="sm">
             <Link href={`/events/${event.id}/participants`}>
               <Users2 className="mr-1.5 h-3.5 w-3.5" />
@@ -104,6 +137,14 @@ export function EventDetailCard({ event }: { event: EventDetail }) {
                   <Tag className="h-3.5 w-3.5 text-muted-foreground" />
                   <p className="capitalize">{categoryLabel[event.category] ?? event.category}</p>
                 </div>
+                <label className="mt-2 block text-xs" htmlFor="correct-category">Correct category</label>
+                <select id="correct-category" className="my-2 max-w-full rounded border bg-background p-2" value={categoryId} onChange={event => setCategoryId(event.target.value)} disabled={saving || categories.isPending}>
+                  <option value="">Choose existing category</option>
+                  {categories.data?.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}
+                </select>
+                <Button size="sm" variant="outline" disabled={!categoryId || saving} onClick={() => void saveCategory()}>{saving ? 'Saving…' : 'Save category'}</Button>
+                {categories.isError && <p role="alert" className="text-xs text-red-600">Categories could not be loaded.</p>}
+                {categoryMessage && <p role="status" className="text-xs">{categoryMessage}</p>}
               </div>
               <div className="space-y-0.5">
                 <p className="text-xs text-muted-foreground">Date &amp; Time</p>

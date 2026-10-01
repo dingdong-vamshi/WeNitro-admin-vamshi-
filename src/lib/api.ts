@@ -9,6 +9,7 @@ type UserRow = {
   is_delete: number | null; isverified: number | null; rating: number | null; points: number | null;
 };
 type EventRow = {
+  is_admin_pinned: boolean;
   id: number; title: string; description: string | null; created_by: number;
   created_at: string | null; updated_at: string | null; event_start_time: string | null;
   event_end_time: string | null; display_location: string | null; location: string | null;
@@ -18,6 +19,7 @@ type EventRow = {
 type ParticipantRow = { id: number; event_id: number; user_id: number; status: string; joined_at: string | null; created_at: string };
 type UserReportRow = { id: number; target_user_id: number; reporter_id: number; reason: string; description: string | null; created_at: string };
 type EventReportRow = { id: number; event_id: number; reporter_id: number; reason: string; description: string | null; created_at: string | null };
+type VibeReportRow = { id: number; vibe_id: number; reported_by: number; reason: string; details: string; status: string; created_at: string };
 type ActivityPaymentRow = {
   id: number | string;
   event_id: number | string;
@@ -36,7 +38,7 @@ type ActivityPaymentRow = {
   paid_at: string | null;
 };
 
-const EVENT_COLUMNS = "id,title,description,created_by,created_at,updated_at,event_start_time,event_end_time,display_location,location,max_participants,status,intent,is_cancelled,is_deleted,media";
+const EVENT_COLUMNS = "id,title,description,created_by,created_at,updated_at,event_start_time,event_end_time,display_location,location,max_participants,status,intent,is_cancelled,is_deleted,media,is_admin_pinned";
 const PAYMENT_COLUMNS = "id,event_id,user_id,provider_order_id,provider_payment_id,payment_session_id,amount_paisa,currency,status,provider_status,idempotency_key,provider_metadata,created_at,updated_at,paid_at";
 
 function configured() {
@@ -69,6 +71,7 @@ function categoryOf(value?: string | null): A.EventCategory {
 function statusOf(event: EventRow): A.EventStatus {
   if (event.is_cancelled || event.is_deleted || event.status.toLowerCase() === "cancelled") return "cancelled";
   if (event.status.toLowerCase() === "reported") return "reported";
+  if (event.status.toLowerCase() === "completed") return "completed";
   const now = Date.now();
   if (event.event_end_time && new Date(event.event_end_time).getTime() < now) return "completed";
   if (event.event_start_time && new Date(event.event_start_time).getTime() <= now) return "ongoing";
@@ -163,6 +166,21 @@ async function categories() {
   check("Unable to load activity categories", categoryResult.error);
   const names = new Map((categoryResult.data ?? []).map((row) => [Number(row.id), String(row.name)]));
   return new Map((linkResult.data ?? []).map((row) => [Number(row.event_id), names.get(Number(row.category_id)) ?? "Social"]));
+}
+
+async function vibeReports(): Promise<VibeReportRow[]> {
+  const result = await supabase.rpc('admin_list_vibe_reports');
+  check('Unable to load Vibe reports', result.error);
+  return (result.data || []) as VibeReportRow[];
+}
+export async function reviewVibeReport(id: string, status: 'reviewing' | 'resolved' | 'dismissed') {
+  const result = await supabase.rpc('admin_review_vibe_report', { p_report_id: Number(id.replace(/^vibe-/, '')), p_status: status });
+  check('Unable to review Vibe report', result.error);
+}
+export async function correctActivityCategory(eventId: string, categoryId: string) {
+  const result = await supabase.rpc('admin_correct_activity_category', { p_event_id: Number(eventId), p_category_id: Number(categoryId) });
+  check('Unable to correct activity category', result.error);
+  return result.data as { category: string };
 }
 function userCounts(eventRows: EventRow[], participantRows: ParticipantRow[]) {
   const hosted = new Map<number, number>();
@@ -292,7 +310,8 @@ export async function getDashboardSnapshot(range: A.DashboardRange = "30d"): Pro
   const userMap = new Map(userRows.map((row) => [row.id, row]));
   const counts = new Map<number, number>(); participantRows.filter(isApprovedParticipant).forEach((row) => counts.set(row.event_id, (counts.get(row.event_id) ?? 0) + 1));
   const mapped = eventRows.map((row) => mapEvent(row, userMap, counts, categoryMap));
-  const reportCount = reportRows[0].length + reportRows[1].length;
+  const vibeReportRows = await vibeReports();
+  const reportCount = reportRows[0].length + reportRows[1].length + vibeReportRows.length;
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const recent = [
     ...userRows.slice(0, 4).map((row) => ({ id: `user-${row.id}`, title: `${row.fullname || row.username} joined WeNitro`, detail: "Member registration", ago: ago(dateValue(row.create_at)), date: dateValue(row.create_at) })),
@@ -311,7 +330,11 @@ export async function getDashboardSnapshot(range: A.DashboardRange = "30d"): Pro
     ],
     growth: buckets(range).map(({ label, end }) => ({ label, users: userRows.filter((row) => new Date(dateValue(row.create_at)) <= end).length, events: eventRows.filter((row) => new Date(dateValue(row.created_at)) <= end).length, revenue: 0 })),
     contentMix: [{ name: "Activities", value: eventRows.length }, { name: "Communities", value: communities.count ?? 0 }, { name: "Vibes", value: vibes.count ?? 0 }, { name: "Stories", value: stories.count ?? 0 }],
-    pendingReports: [],
+    pendingReports: [
+      ...reportRows[0].map(row => ({ id: `user-${row.id}`, username: `User ${row.reporter_id}`, reason: row.reason, eventTitle: `User ${row.target_user_id}`, reportedAgo: ago(row.created_at) })),
+      ...reportRows[1].map(row => ({ id: `event-${row.id}`, username: `User ${row.reporter_id}`, reason: row.reason, eventTitle: `Activity ${row.event_id}`, reportedAgo: ago(dateValue(row.created_at)) })),
+      ...vibeReportRows.map(row => ({ id: `vibe-${row.id}`, username: `User ${row.reported_by}`, reason: row.reason, eventTitle: `Vibe ${row.vibe_id}`, reportedAgo: ago(row.created_at) })),
+    ].slice(0, 8),
     upcomingEvents: mapped.filter((row) => row.status === "upcoming" || row.status === "ongoing").slice(0, 4).map((row) => ({ id: row.id, title: row.title, host: row.host, schedule: new Date(row.date).toLocaleString("en-IN"), participants: `${row.attendees} / ${row.maxAttendees ?? 0} joined`, tags: [row.category, row.status] })),
     recentActivities: recent,
     systemAlerts: [
@@ -384,7 +407,7 @@ export async function getEventDetail(id: string): Promise<A.EventDetail | null> 
   const numericId = Number(id); if (!Number.isInteger(numericId)) return null; const [eventRows, userRows, participantRows, categoryMap] = await Promise.all([events(), users(), participants(), categories()]); const event = eventRows.find((row) => row.id === numericId); if (!event) return null;
   const counts = new Map([[numericId, participantRows.filter((row) => row.event_id === numericId && isApprovedParticipant(row)).length]]); const mapped = mapEvent(event, new Map(userRows.map((row) => [row.id, row])), counts, categoryMap); let photos = 0; let videos = 0;
   if (Array.isArray(event.media)) event.media.forEach((item) => { const type = typeof item === "object" && item !== null && "type" in item ? String(item.type) : ""; if (type.includes("video")) videos += 1; else photos += 1; });
-  return { ...mapped, hostId: String(event.created_by), description: event.description ?? "", isFeatured: false, createdAt: dateValue(event.created_at), mediaCount: { photos, videos }, maxAttendees: event.max_participants ?? 0, location: event.display_location || event.location || "Not provided", startTime: mapped.startTime ?? "" };
+  return { ...mapped, hostId: String(event.created_by), description: event.description ?? "", isFeatured: event.is_admin_pinned === true, createdAt: dateValue(event.created_at), mediaCount: { photos, videos }, maxAttendees: event.max_participants ?? 0, location: event.display_location || event.location || "Not provided", startTime: mapped.startTime ?? "" };
 }
 export async function getEventParticipants(eventId: string, params?: { search?: string; status?: A.EventParticipantStatus | "all"; page?: number; pageSize?: number }): Promise<{ rows: A.EventParticipant[]; total: number }> {
   const id = Number(eventId); if (!Number.isInteger(id)) return { rows: [], total: 0 }; const [participantRows, userRows] = await Promise.all([participants(), users()]); const userMap = new Map(userRows.map((row) => [row.id, row])); const search = params?.search?.toLowerCase().trim() ?? "";
@@ -405,7 +428,14 @@ export async function getReportedEvents(params?: { search?: string; severity?: s
 export async function getChatViolations(params?: { search?: string; severity?: string; page?: number; pageSize?: number }): Promise<{ rows: A.ChatViolation[]; total: number }> { void params; return { rows: [], total: 0 }; }
 export async function getImageModerationQueue(params?: { status?: string }): Promise<A.ImageModerationItem[]> { void params; return []; }
 export async function getPendingReportItems(params?: { type?: string; page?: number; pageSize?: number }): Promise<{ rows: A.PendingReportItem[]; total: number }> {
-  const [userRows, eventRows] = await reports(); const type = params?.type ?? "all"; const rows: A.PendingReportItem[] = [...userRows.map((row) => ({ id: `user-${row.id}`, type: "user" as const, reportedItem: `User ${row.target_user_id}`, reportedItemId: String(row.target_user_id), date: row.created_at })), ...eventRows.map((row) => ({ id: `event-${row.id}`, type: "event" as const, reportedItem: `Activity ${row.event_id}`, reportedItemId: String(row.event_id), date: dateValue(row.created_at) }))].filter((row) => type === "all" || row.type === type); return { rows: paginate(rows, params?.page, params?.pageSize), total: rows.length };
+  const [[userRows, eventRows], vibeRows] = await Promise.all([reports(), vibeReports()]);
+  const type = params?.type ?? "all";
+  const rows: A.PendingReportItem[] = [
+    ...userRows.map(row => ({ id: `user-${row.id}`, type: 'user' as const, reportedItem: `User ${row.target_user_id}`, reportedItemId: String(row.target_user_id), date: row.created_at, reason: row.reason, details: row.description || '' })),
+    ...eventRows.map(row => ({ id: `event-${row.id}`, type: 'event' as const, reportedItem: `Activity ${row.event_id}`, reportedItemId: String(row.event_id), date: dateValue(row.created_at), reason: row.reason, details: row.description || '' })),
+    ...vibeRows.map(row => ({ id: `vibe-${row.id}`, type: 'vibe' as const, reportedItem: `Vibe ${row.vibe_id}`, reportedItemId: String(row.vibe_id), date: row.created_at, reason: row.reason, details: row.details, status: row.status })),
+  ].filter(row => type === 'all' || row.type === type).sort((a, b) => b.date.localeCompare(a.date));
+  return { rows: paginate(rows, params?.page, params?.pageSize), total: rows.length };
 }
 export async function getInvestigationCases(): Promise<A.InvestigationCase[]> { return []; }
 export async function getInvestigationCase(id: string): Promise<A.InvestigationCase | null> { void id; return null; }
@@ -538,5 +568,15 @@ export async function getCommunities() { configured(); const [rooms, members] = 
 export async function getVibes() { configured(); const result = await supabase.from("tbl_activity_vibes").select("id,user_id,event_id,caption,media_type,media_url,likes_count,visibility,created_at").order("created_at", { ascending: false }); check("Unable to load vibes", result.error); return result.data ?? []; }
 export async function getStories() { configured(); const result = await supabase.from("tbl_stories").select("id,user_id,caption,media_type,media_url,created_at,expires_at,deleted_at").order("created_at", { ascending: false }); check("Unable to load stories", result.error); return result.data ?? []; }
 export async function getVerificationSubmissions() { configured(); const result = await supabase.from("tbl_user_verification").select("id,user_id,verification_type,status,document_path,document_mime,submitted_at,reviewed_at,review_notes,created_at,updated_at").order("created_at", { ascending: false }); check("Unable to load verification submissions", result.error); return result.data ?? []; }
+export async function getVerificationPreview(id: number) {
+  configured();
+  const record = await supabase.from("tbl_user_verification").select("document_path").eq("id", id).single();
+  check("Unable to read verification", record.error);
+  if (!record.data?.document_path) throw new Error("No private document was submitted.");
+  const signed = await supabase.storage.from("verification").createSignedUrl(record.data.document_path, 300);
+  check("Unable to preview private verification", signed.error);
+  if (!signed.data?.signedUrl) throw new Error("Private preview is unavailable.");
+  return signed.data.signedUrl;
+}
 export async function reviewVerification(id: number, status: "approved" | "rejected", notes = "Reviewed in WeNitro Admin") { configured(); const result = await supabase.rpc("admin_review_verification", { p_verification_id: id, p_status: status, p_review_notes: notes }); check("Unable to review verification", result.error); return result.data; }
 export async function getUserInterests(userId?: string) { configured(); let query = supabase.from("tbl_user_interests").select("id,user_id,category_id,created_at,tbl_categories(name)").order("created_at", { ascending: false }); if (userId !== undefined) query = query.eq("user_id", Number(userId)); const result = await query; check("Unable to load user interests", result.error); return result.data ?? []; }
