@@ -318,7 +318,8 @@ export async function getDashboardSnapshot(range: A.DashboardRange = "30d"): Pro
     ...eventRows.slice(0, 4).map((row) => ({ id: `event-${row.id}`, title: row.title, detail: "Activity created", ago: ago(dateValue(row.created_at)), date: dateValue(row.created_at) })),
     ...(vibes.data ?? []).map((row) => ({ id: `vibe-${row.id}`, title: row.caption || "New vibe", detail: "Vibe published", ago: ago(dateValue(row.created_at)), date: dateValue(row.created_at) })),
     ...(communities.data ?? []).map((row) => ({ id: `community-${row.id}`, title: row.title || "New community", detail: "Community created", ago: ago(dateValue(row.created_at)), date: dateValue(row.created_at) })),
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6).map(({ date: _date, ...row }) => row);
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6)
+    .map((row) => ({ id: row.id, title: row.title, detail: row.detail, ago: row.ago }));
   return {
     metrics: [
       { title: "Total members", value: formatNumber(userRows.length), delta: "Live", trend: "flat" },

@@ -64,7 +64,7 @@ export function RewardsCatalogTable() {
   const totalPages = useMemo(() => {
     if (!query.data) return 1;
     return Math.max(1, Math.ceil(query.data.total / pageSize));
-  }, [query.data]);
+  }, [query.data, pageSize]);
 
   function openEdit(item: RewardItem) {
     setEditTarget(item);
@@ -93,15 +93,12 @@ export function RewardsCatalogTable() {
     setDeleteTarget(null);
   }
 
-  function toggleStatus(item: RewardItem) {
+  function toggleStatus() {
     queryClient.invalidateQueries({ queryKey: ["reward-catalog"] });
   }
 
   const inputCls =
     "h-9 w-full rounded-lg border border-border/70 bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40";
-  const selectCls =
-    "h-9 appearance-none rounded-lg border border-border/70 bg-background px-3 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40";
-
   return (
     <>
       <div className="overflow-hidden rounded-xl border border-border/70 bg-card">
@@ -201,7 +198,7 @@ export function RewardsCatalogTable() {
                           <DropdownMenuItem onClick={() => openEdit(item)}>
                             <Edit2 className="mr-2 h-3.5 w-3.5" /> Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toggleStatus(item)}>
+                          <DropdownMenuItem onClick={toggleStatus}>
                             {item.status === "active" ? "Disable" : "Enable"}
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />

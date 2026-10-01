@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { sponsoredStatusLabel, sponsoredStatusVariant } from "@/components/admin/sponsored-events-table";
-import type { SponsoredEventStatus } from "@/types/admin";
 
 function formatInr(n: number) {
   return `₹${new Intl.NumberFormat("en-IN").format(n)}`;
@@ -37,8 +36,6 @@ export default async function SponsoredEventDetailPage({
   const event = await getSponsoredEventDetail(id);
 
   if (!event) notFound();
-
-  const isActionable = event.status === "pending" || event.status === "active";
 
   return (
     <div className="space-y-6">

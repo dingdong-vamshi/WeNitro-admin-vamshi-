@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Ban, ChevronDown, Eye, MoreHorizontal, Search, Shield, SlidersHorizontal, Trash2, UserX, XCircle, XOctagon } from "lucide-react";
+import { AlertTriangle, ChevronDown, Eye, MoreHorizontal, Search, Shield, SlidersHorizontal, Trash2, UserX, XCircle, XOctagon } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { getReportedEvents } from "@/lib/api";

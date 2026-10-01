@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ClipboardList, MoreHorizontal, Search, ShieldAlert, UserCog, CheckCircle2, ArrowUpCircle } from "lucide-react";
+import { ChevronDown, ClipboardList, MoreHorizontal, ShieldAlert, UserCog, CheckCircle2, ArrowUpCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { getPendingReportItems, reviewVibeReport } from "@/lib/api";

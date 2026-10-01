@@ -86,9 +86,6 @@ export function AchievementBadgesTable() {
 
   const inputCls =
     "h-9 w-full rounded-lg border border-border/70 bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/40";
-  const selectCls =
-    "h-9 appearance-none rounded-lg border border-border/70 bg-background px-3 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40";
-
   const formBody = (
     <div className="space-y-3 py-1">
       <div className="space-y-1.5">

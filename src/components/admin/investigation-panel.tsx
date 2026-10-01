@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, MessageSquare, Shield, Users, CalendarDays, Image } from "lucide-react";
+import { AlertTriangle, MessageSquare, Shield, Users, CalendarDays, Image as ImageIcon } from "lucide-react";
 
 import { getInvestigationCases } from "@/lib/api";
 import { ModerationSeverityBadge } from "@/components/admin/moderation-severity-badge";
@@ -107,7 +107,7 @@ export function InvestigationPanel() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Image className="h-4 w-4 text-muted-foreground" />
+                <ImageIcon className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="text-xs text-muted-foreground">Images Uploaded</p>
                   <p className="text-sm font-semibold">{selected.imagesUploaded}</p>

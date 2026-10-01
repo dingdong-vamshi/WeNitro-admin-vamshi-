@@ -82,7 +82,7 @@ export function CouponManagementTable() {
   const totalPages = useMemo(() => {
     if (!query.data) return 1;
     return Math.max(1, Math.ceil(query.data.total / pageSize));
-  }, [query.data]);
+  }, [query.data, pageSize]);
 
   function openEdit(coupon: Coupon) {
     setEditTarget(coupon);

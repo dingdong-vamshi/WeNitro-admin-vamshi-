@@ -47,22 +47,6 @@ export function CategoryManagementScreen() {
   if (query.isLoading) return <AdminDataState title="activity categories" loading />;
   if (query.isError) return <AdminDataState title="activity categories" error={query.error} onRetry={() => void query.refetch()} />;
 
-  function openAdd() {
-    setForm(emptyForm);
-    setDialog("add");
-  }
-
-  function openEdit(cat: EventCategoryItem) {
-    setSelected(cat);
-    setForm({ name: cat.name, icon: cat.icon, description: cat.description, displayOrder: cat.displayOrder, status: cat.status });
-    setDialog("edit");
-  }
-
-  function openDelete(cat: EventCategoryItem) {
-    setSelected(cat);
-    setDialog("delete");
-  }
-
   function handleSaveAdd() {
     const newCat: EventCategoryItem = { ...form, id: `cat-${Date.now()}` };
     setCategories([...data, newCat]);
@@ -83,14 +67,6 @@ export function CategoryManagementScreen() {
     if (!selected) return;
     setCategories(data.filter((c) => c.id !== selected.id));
     setDialog(null);
-  }
-
-  function handleToggleStatus(cat: EventCategoryItem) {
-    setCategories(
-      data.map((c) =>
-        c.id === cat.id ? { ...c, status: c.status === "active" ? "disabled" : "active" } : c,
-      ),
-    );
   }
 
   return (
