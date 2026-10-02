@@ -152,6 +152,7 @@ export const navSections: NavSection[] = [
     icon: Lock,
     href: "/security",
     children: [
+      { label: "Anonymous Post Audit", href: "/security" },
       { label: "Blocked Users", href: "/security/blocked-users" },
       { label: "Safety Reports", href: "/security/safety-reports" },
       { label: "Abuse Detection", href: "/security/abuse-detection" },
