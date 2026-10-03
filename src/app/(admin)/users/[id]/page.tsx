@@ -144,7 +144,7 @@ export default function UserProfilePage() {
                 <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Events Joined</p>
               </div>
               <div className="rounded-xl border border-border/70 p-4 text-center">
-                <p className="text-2xl font-bold tabular-nums">{profile.followers}</p>
+                <p className="text-2xl font-bold tabular-nums">{profile.followers ?? "Not tracked"}</p>
                 <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Followers</p>
               </div>
             </div>

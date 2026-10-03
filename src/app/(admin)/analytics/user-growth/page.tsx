@@ -26,7 +26,7 @@ export default function UserGrowthPage() {
   const stats = [
     { label: "Total Users",           value: data.stats.totalUsers.toLocaleString(),          Icon: Users,       color: "text-chart-1" },
     { label: "New Users (This Month)", value: data.stats.newUsersThisMonth.toLocaleString(),   Icon: UserPlus,    color: "text-chart-2" },
-    { label: "Active Users",           value: data.stats.activeUsers.toLocaleString(),         Icon: Activity,    color: "text-chart-3" },
+    { label: "Enabled Accounts",           value: data.stats.activeUsers.toLocaleString(),         Icon: Activity,    color: "text-chart-3" },
     { label: "Verified Users",         value: data.stats.verifiedUsers.toLocaleString(),       Icon: ShieldCheck, color: "text-chart-4" },
   ];
 
@@ -78,9 +78,9 @@ export default function UserGrowthPage() {
           <CardContent className="space-y-4 pt-2">
             <div className="grid grid-cols-3 gap-4">
               {[
-                { label: "Weekly",    value: `${data.retention.week}%` },
-                { label: "Monthly",   value: `${data.retention.month}%` },
-                { label: "Quarterly", value: `${data.retention.quarter}%` },
+                { label: "Weekly",    value: data.retention.week === null ? "Awaiting cohort" : `${data.retention.week}%` },
+                { label: "Monthly",   value: data.retention.month === null ? "Awaiting cohort" : `${data.retention.month}%` },
+                { label: "Quarterly", value: data.retention.quarter === null ? "Awaiting cohort" : `${data.retention.quarter}%` },
               ].map((item) => (
                 <div key={item.label} className="rounded-lg border bg-muted/30 p-4 text-center">
                   <div className="text-xl font-bold tracking-tight">{item.value}</div>
@@ -89,7 +89,7 @@ export default function UserGrowthPage() {
               ))}
             </div>
             <p className="text-xs text-muted-foreground">
-              Percentage of users who return within the given period after their first session.
+              Percentage of the previous UTC period’s active members seen again in the current period. No prior cohort is shown as awaiting data.
             </p>
           </CardContent>
         </Card>

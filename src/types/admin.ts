@@ -34,7 +34,7 @@ export type UserProfile = {
   phone: string;
   eventsHosted: number;
   eventsJoined: number;
-  followers: number;
+  followers: number | null;
   verificationType?: string;
   verifiedAt?: string;
   blockedReason?: string;
@@ -451,7 +451,7 @@ export type SponsoredEventDetail = {
   participantsRegistered: number;
   impressions: number;
   clicks: number;
-  conversionRate: number;
+  conversionRate: number | null;
   description: string;
 };
 
@@ -670,7 +670,8 @@ export type UserAnalyticsData = {
   deviceUsage: DeviceUsage[];
   dau: number;
   mau: number;
-  retentionRate: number;
+  retentionRate: number | null;
+  observedSince: string | null;
 };
 
 export type EventCreationPoint = {
@@ -741,9 +742,9 @@ export type EngagementMetricsData = {
   trend: EngagementPoint[];
   avgParticipants: number;
   avgMessages: number;
-  avgRating: number;
+  avgRating: number | null;
   funnel: FunnelStep[];
-  conversionRate: number;
+  conversionRate: number | null;
   peakTimes: string[];
   heatmap: HeatmapRow[];
 };
@@ -751,9 +752,9 @@ export type EngagementMetricsData = {
 // ── Analytics & Reports Extended Module ──────────────────────────────────────
 
 export type RetentionData = {
-  week: number;
-  month: number;
-  quarter: number;
+  week: number | null;
+  month: number | null;
+  quarter: number | null;
 };
 
 export type UserGrowthReportData = {
@@ -786,7 +787,7 @@ export type EventEngagementData = {
   avgParticipants: number;
   avgShares: number;
   avgBookmarks: number;
-  avgRating: number;
+  avgRating: number | null;
 };
 
 export type ReportTopEventRow = {
@@ -796,7 +797,7 @@ export type ReportTopEventRow = {
   city: string;
   category: string;
   participants: number;
-  rating: number;
+  rating: number | null;
 };
 
 export type HostReportRow = {

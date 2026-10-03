@@ -19,9 +19,9 @@ export default function CoinsDistributionPage() {
   if (query.isLoading) return <AdminDataState title="coin metrics" loading />;
   if (query.error) return <AdminDataState title="coin metrics" error={query.error} onRetry={() => void query.refetch()} />;
   const metrics = [
-    { title: "Total Rules", value: String(query.data?.rules.total ?? 0), delta: "Live catalog", trend: "flat" as const },
+    { title: "Total Rules", value: String(query.data?.rules.total ?? 0), delta: "Approved contract", trend: "flat" as const },
     { title: "Avg Coins / User", value: (query.data?.metrics.avgCoinsPerUser ?? 0).toLocaleString(), delta: "All users", trend: "flat" as const },
-    { title: "Total Coins Distributed", value: (query.data?.metrics.totalCoinsDistributed ?? 0).toLocaleString(), delta: "Current balances", trend: "flat" as const },
+    { title: "Total Coins Distributed", value: (query.data?.metrics.totalCoinsDistributed ?? 0).toLocaleString(), delta: "Recorded positive awards", trend: "flat" as const },
     { title: "Top Earning Action", value: query.data?.metrics.topCoinAction || "Not tracked", delta: "Live schema", trend: "flat" as const },
   ];
   return (
@@ -31,7 +31,7 @@ export default function CoinsDistributionPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Coins Distribution</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Define and manage coin earning rules for user actions across the platform.
+            Review the approved Nitro earning rules and actual award ledger. Rule changes require a reviewed backend release.
           </p>
         </div>
       </div>

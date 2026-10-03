@@ -14,7 +14,7 @@ export default function TopEventsPage() {
   const data = query.data;
 
   const totalParticipants = data.reduce((s, r) => s + r.participants, 0);
-  const avgRating = (data.reduce((s, r) => s + r.rating, 0) / data.length).toFixed(2);
+  const avgRating = data.some(r => r.rating !== null) ? (data.reduce((s, r) => s + (r.rating ?? 0), 0) / data.filter(r => r.rating !== null).length).toFixed(2) : "Not collected";
   const uniqueCities = new Set(data.map((r) => r.city)).size;
 
   const summaryCards = [

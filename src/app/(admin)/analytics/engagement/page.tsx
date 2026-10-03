@@ -9,7 +9,6 @@ import { getEngagementMetrics } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   EngagementTrendChart,
-  ConversionFunnelChart,
   ActivityHeatmapChart,
 } from "@/components/charts/engagement-charts";
 import { AnalyticsFilters } from "@/components/admin/analytics-filters";
@@ -76,14 +75,14 @@ export default function EngagementMetricsPage() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Average Engagement Per Event</CardTitle>
+            <CardTitle className="text-sm">Joins per Activity / platform messages</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-2">
             <div className="grid grid-cols-3 gap-4">
               {[
                 { label: "Avg Participants", value: data.avgParticipants },
-                { label: "Avg Messages", value: data.avgMessages },
-                { label: "Avg Rating", value: data.avgRating },
+                { label: "Platform messages / Activity", value: data.avgMessages },
+                { label: "Avg Rating", value: data.avgRating ?? "Not collected" },
               ].map((item) => (
                 <div key={item.label} className="rounded-lg border bg-muted/30 p-4 text-center">
                   <div className="text-xl font-bold tracking-tight">{item.value}</div>
@@ -108,7 +107,7 @@ export default function EngagementMetricsPage() {
           </CardContent>
         </Card>
 
-        <ConversionFunnelChart data={data.funnel} conversionRate={data.conversionRate} />
+        <Card><CardHeader><CardTitle>Conversion</CardTitle></CardHeader><CardContent>Conversion attribution is not collected. No inferred conversion rate is shown.</CardContent></Card>
       </div>
 
       {/* Activity Heatmap */}

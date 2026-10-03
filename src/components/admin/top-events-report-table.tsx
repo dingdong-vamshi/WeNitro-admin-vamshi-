@@ -186,7 +186,7 @@ export function TopEventsReportTable() {
                 <TableCell className="text-right">
                   <span className="flex items-center justify-end gap-1">
                     <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-                    {row.rating.toFixed(1)}
+                    {row.rating === null ? "Not collected" : row.rating.toFixed(1)}
                   </span>
                 </TableCell>
               </TableRow>

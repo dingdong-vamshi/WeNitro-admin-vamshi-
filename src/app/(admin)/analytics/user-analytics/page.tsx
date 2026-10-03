@@ -28,7 +28,7 @@ export default function UserAnalyticsPage() {
   const stats = [
     { label: "Total Users", value: data.stats.totalUsers.toLocaleString() },
     { label: "New Users (This Month)", value: data.stats.newUsersThisMonth.toLocaleString() },
-    { label: "Active Users", value: data.stats.activeUsers.toLocaleString() },
+    { label: "Enabled Accounts", value: data.stats.activeUsers.toLocaleString() },
     { label: "Verified Users", value: data.stats.verifiedUsers.toLocaleString() },
   ];
 
@@ -78,6 +78,7 @@ export default function UserAnalyticsPage() {
         <DeviceUsageChart data={data.deviceUsage} />
       </div>
 
+      <p className="text-xs text-muted-foreground">Usage collection began {data.observedSince ?? "when the first signed-in member opens this release"}. No historical sessions are inferred. Device usage counts daily member/platform observations.</p>
       {/* Activity Metrics */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
@@ -86,7 +87,7 @@ export default function UserAnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tracking-tight">{data.dau.toLocaleString()}</div>
-            <p className="mt-1 text-xs text-muted-foreground">Users active today</p>
+            <p className="mt-1 text-xs text-muted-foreground">Observed today (UTC)</p>
           </CardContent>
         </Card>
         <Card>
@@ -95,7 +96,7 @@ export default function UserAnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold tracking-tight">{data.mau.toLocaleString()}</div>
-            <p className="mt-1 text-xs text-muted-foreground">Users active this month</p>
+            <p className="mt-1 text-xs text-muted-foreground">Observed in the last 30 UTC days</p>
           </CardContent>
         </Card>
         <Card>
@@ -103,8 +104,8 @@ export default function UserAnalyticsPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground">Retention Rate</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold tracking-tight">{data.retentionRate}%</div>
-            <p className="mt-1 text-xs text-muted-foreground">30-day user retention</p>
+            <div className="text-2xl font-bold tracking-tight">{data.retentionRate === null ? "Awaiting prior cohort" : `${data.retentionRate}%`}</div>
+            <p className="mt-1 text-xs text-muted-foreground">Return rate from the previous 30-day active cohort</p>
           </CardContent>
         </Card>
       </div>

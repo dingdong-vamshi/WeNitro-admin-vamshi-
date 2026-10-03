@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Globe, Bell, Mail, Tag } from "lucide-react";
 
+import {AdminDataState} from "@/components/admin/admin-data-state";
 import { getSettingsSummary } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -13,6 +14,7 @@ const keys = ["activeCategories", "notificationTemplates", "emailTemplates", "en
 export function SettingsSummaryCards() {
   const query = useQuery({ queryKey: ["settings-summary"], queryFn: getSettingsSummary });
   const data = query.data;
+  if(query.error)return <AdminDataState title="settings summary" error={query.error} onRetry={()=>void query.refetch()}/>;
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

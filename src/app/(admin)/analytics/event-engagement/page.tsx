@@ -42,7 +42,7 @@ export default function EventEngagementPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Event Engagement</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Measure how users discover, join, share, and save events across the platform.
+          Views and shares count distinct member/Activity/UTC-day observations since this release. Joins include approved participants only; Vibe shares are excluded.
         </p>
       </div>
 
@@ -79,7 +79,7 @@ export default function EventEngagementPage() {
               { label: "Avg Participants", value: data.avgParticipants },
               { label: "Avg Shares",        value: data.avgShares },
               { label: "Avg Bookmarks",     value: data.avgBookmarks },
-              { label: "Avg Rating",        value: data.avgRating.toFixed(1) },
+              { label: "Avg Rating",        value: data.avgRating === null ? "Not collected" : data.avgRating.toFixed(1) },
             ].map((m) => (
               <div key={m.label} className="rounded-lg border bg-muted/30 p-4 text-center">
                 <div className="text-xl font-bold tracking-tight">{m.value}</div>

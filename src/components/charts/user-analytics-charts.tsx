@@ -57,7 +57,7 @@ export function UsersByCityChart({ data }: { data: UserCityData[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">Users by City</CardTitle>
+        <CardTitle className="text-sm">Members by declared nationality</CardTitle>
       </CardHeader>
       <CardContent className="h-72">
         <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 500, height: 288 }}>
