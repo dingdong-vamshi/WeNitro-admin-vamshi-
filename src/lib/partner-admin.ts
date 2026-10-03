@@ -160,6 +160,16 @@ export async function getPartnerApplication(userId: number) {
   return applications.find((application) => application.userId === userId) ?? null;
 }
 
+export async function getPartnerTermsAcceptance(userId: number): Promise<{ policyVersion: string; acceptedAt: string } | null> {
+  if (!Number.isSafeInteger(userId) || userId <= 0) throw new Error("Invalid Partner applicant.");
+  const result = await supabase.from("tbl_partner_terms_acceptances")
+    .select("policy_version,accepted_at").eq("user_id", userId).maybeSingle();
+  throwIfError("Unable to load Partner Terms receipt", result.error);
+  if (!result.data) return null;
+  const row = record(result.data);
+  return { policyVersion: text(row.policy_version), acceptedAt: text(row.accepted_at) };
+}
+
 export async function listPartnerApplicationHistory(userId: number): Promise<PartnerApplicationHistoryEntry[]> {
   const result = await supabase.rpc("admin_list_partner_application_history", {
     p_user_id: userId,

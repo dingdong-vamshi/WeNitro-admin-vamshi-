@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import {
   getCurrentAdminRole,
   getPartnerApplication,
+  getPartnerTermsAcceptance,
   listPartnerApplicationHistory,
   reviewPartnerApplication,
 } from "@/lib/partner-admin";
@@ -53,6 +54,10 @@ export function PartnerApplicationDetailScreen({ userId }: { userId: number }) {
   const historyQuery = useQuery({
     queryKey: ["partner-application-history", userId],
     queryFn: () => listPartnerApplicationHistory(userId),
+  });
+  const termsQuery = useQuery({
+    queryKey: ["partner-terms-acceptance", userId],
+    queryFn: () => getPartnerTermsAcceptance(userId),
   });
   const roleQuery = useQuery({ queryKey: ["admin-app-role"], queryFn: getCurrentAdminRole });
   const review = useMutation({
@@ -127,6 +132,16 @@ export function PartnerApplicationDetailScreen({ userId }: { userId: number }) {
           </dl></CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Partner Terms agreement</CardTitle><CardDescription>Recorded when the applicant submits an application. This receipt does not verify identity or payout ownership.</CardDescription></CardHeader>
+        <CardContent>
+          {termsQuery.isLoading ? <p className="text-sm text-muted-foreground">Loading Terms receipt…</p>
+            : termsQuery.isError ? <div role="alert" className="space-y-2"><p className="text-sm text-destructive">{termsQuery.error instanceof Error ? termsQuery.error.message : "Unable to load Terms receipt."}</p><Button variant="outline" size="sm" onClick={() => void termsQuery.refetch()}>Retry Terms receipt</Button></div>
+            : termsQuery.data ? <dl><DetailRow label="Policy version" value={termsQuery.data.policyVersion} /><DetailRow label="Accepted at" value={displayDate(termsQuery.data.acceptedAt)} /></dl>
+            : <p className="text-sm text-muted-foreground">No Partner Terms receipt is recorded for this applicant. Existing application status does not establish agreement.</p>}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
