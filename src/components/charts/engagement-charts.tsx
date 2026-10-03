@@ -32,7 +32,7 @@ export function EngagementTrendChart({ data }: { data: EngagementMetricsData["tr
             <Legend />
             <Line type="monotone" dataKey="joins" name="Joins" stroke="#202020" strokeWidth={2} dot={false} />
             <Line type="monotone" dataKey="messages" name="Messages" stroke="#2563eb" strokeWidth={2} dot={false} />
-            <Line type="monotone" dataKey="shares" name="Shares" stroke="#202020" strokeDasharray="4 3" strokeWidth={2} dot={false} />
+            <Line type="monotone" dataKey="shares" name="Vibe Shares" stroke="#202020" strokeDasharray="4 3" strokeWidth={2} dot={false} />
             <Line type="monotone" dataKey="bookmarks" name="Bookmarks" stroke="#2563eb" strokeDasharray="4 3" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>

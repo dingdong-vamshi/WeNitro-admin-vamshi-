@@ -29,14 +29,14 @@ export default function EngagementMetricsPage() {
     { label: "Total Event Joins", value: data.stats.totalJoins.toLocaleString(), Icon: UserPlus, color: "text-chart-1" },
     { label: "Messages Sent", value: data.stats.messagesSent.toLocaleString(), Icon: MessageCircle, color: "text-chart-2" },
     { label: "Event Bookmarks", value: data.stats.bookmarks.toLocaleString(), Icon: Bookmark, color: "text-chart-3" },
-    { label: "Event Shares", value: data.stats.shares.toLocaleString(), Icon: Share2, color: "text-chart-4" },
+    { label: "Vibe Shares", value: data.stats.shares.toLocaleString(), Icon: Share2, color: "text-chart-4" },
   ];
 
   const csvRows = data.trend.map((t) => ({
     Period: t.label,
     Joins: t.joins,
     Messages: t.messages,
-    Shares: t.shares,
+    "Vibe Shares": t.shares,
     Bookmarks: t.bookmarks,
   }));
 
@@ -45,7 +45,7 @@ export default function EngagementMetricsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Engagement Metrics</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Track how users interact with events and the platform.
+          Track Activity joins and bookmarks, platform messages, and Vibe shares. Activity shares are reported separately under Event Engagement.
         </p>
       </div>
 
