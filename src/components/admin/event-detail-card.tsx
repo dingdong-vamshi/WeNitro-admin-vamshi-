@@ -207,7 +207,7 @@ export function EventDetailCard({ event }: { event: EventDetail }) {
           <Card>
             <CardHeader className="border-b border-border/60 bg-muted/20 pb-4">
               <CardTitle>Event Stats</CardTitle>
-              <CardDescription>Engagement and media overview.</CardDescription>
+              <CardDescription>Participation, capacity, and uploaded media.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 pt-5">
               <div className="grid grid-cols-2 gap-4">
@@ -216,16 +216,16 @@ export function EventDetailCard({ event }: { event: EventDetail }) {
                   <p className="text-xs text-muted-foreground">Joined</p>
                 </div>
                 <div className="rounded-lg border border-border bg-muted/20 p-3 text-center">
-                  <p className="text-2xl font-bold">{event.maxAttendees}</p>
+                  <p className="text-2xl font-bold">{event.maxAttendees > 0 ? event.maxAttendees : "No limit"}</p>
                   <p className="text-xs text-muted-foreground">Capacity</p>
                 </div>
                 <div className="rounded-lg border border-border bg-muted/20 p-3 text-center">
-                  <p className="text-2xl font-bold">{event.engagement}%</p>
-                  <p className="text-xs text-muted-foreground">Engagement</p>
+                  <p className="text-2xl font-bold">{event.mediaCount.photos + event.mediaCount.videos}</p>
+                  <p className="text-xs text-muted-foreground">Media uploads</p>
                 </div>
                 <div className="rounded-lg border border-border bg-muted/20 p-3 text-center">
                   <p className="text-2xl font-bold">
-                    {Math.round((event.attendees / event.maxAttendees) * 100)}%
+                    {event.maxAttendees > 0 ? `${Math.round((event.attendees / event.maxAttendees) * 100)}%` : "Not capped"}
                   </p>
                   <p className="text-xs text-muted-foreground">Capacity Fill</p>
                 </div>
