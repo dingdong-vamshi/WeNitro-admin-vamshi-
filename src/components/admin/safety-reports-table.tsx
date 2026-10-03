@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Search, FileText, ShieldAlert, UserX, Eye, CheckCircle2, XCircle, Clock } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Search, FileText, UserX, Eye, CheckCircle2, XCircle, Clock } from "lucide-react";
 
-import { getSafetyReports } from "@/lib/api";
+import { getSafetyReports, reviewReport } from "@/lib/api";
 import type { SafetyReport, SafetyReportStatus, SafetyReportType } from "@/types/admin";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -18,24 +18,30 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import Link from "next/link";
+import { BanUserDialog } from "@/components/admin/ban-user-dialog";
+import { AdminDataState } from "@/components/admin/admin-data-state";
 import { useDebounce } from "@/hooks/use-debounce";
 
 const statusVariant: Record<SafetyReportStatus, "warning" | "info" | "success"> = {
   pending: "warning",
   investigating: "info",
   resolved: "success",
+  dismissed: "info",
 };
 
 const statusLabel: Record<SafetyReportStatus, string> = {
   pending: "Pending",
   investigating: "Investigating",
   resolved: "Resolved",
+  dismissed: "Dismissed",
 };
 
 const statusIcon: Record<SafetyReportStatus, React.ElementType> = {
   pending: Clock,
   investigating: Eye,
   resolved: CheckCircle2,
+  dismissed: XCircle,
 };
 
 const typeLabel: Record<SafetyReportType, string> = {
@@ -51,9 +57,13 @@ const reportTypes: Array<SafetyReportType | "all"> = [
   "all", "harassment", "fake_event", "inappropriate_message", "spam", "impersonation", "other",
 ];
 
-const statuses: Array<SafetyReportStatus | "all"> = ["all", "pending", "investigating", "resolved"];
+const statuses: Array<SafetyReportStatus | "all"> = ["all", "pending", "investigating", "resolved", "dismissed"];
 
 export function SafetyReportsTable() {
+  const cache = useQueryClient();
+  const [busy,setBusy]=useState(false);
+  const [actionError,setActionError]=useState("");
+  const [restriction,setRestriction]=useState<SafetyReport|null>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<SafetyReportStatus | "all">("all");
   const [reportType, setReportType] = useState<SafetyReportType | "all">("all");
@@ -72,11 +82,19 @@ export function SafetyReportsTable() {
     return Math.max(1, Math.ceil(query.data.total / pageSize));
   }, [query.data]);
 
+  async function review(report:SafetyReport,next:"reviewing"|"resolved"|"dismissed") {
+    if(busy)return;setBusy(true);setActionError("");
+    try {await reviewReport(report.sourceType,report.sourceId,next,"Reviewed from Safety Reports: "+next);setSelectedReport(current=>current?.id===report.id?{...current,status:next==="reviewing"?"investigating":next}:current);await cache.invalidateQueries();}
+    catch(e){setActionError(e instanceof Error?e.message:"Report review failed");}finally{setBusy(false);}
+  }
+  if(query.isError)return <AdminDataState title="safety reports" error={query.error} onRetry={()=>void query.refetch()}/>;
   const selectCls =
     "h-9 appearance-none rounded-lg border border-border/70 bg-background px-3 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40";
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+      {actionError&&<p role="alert" className="text-destructive">{actionError}</p>}
+      {restriction&&<BanUserDialog userId={restriction.reportedUserId} userName={restriction.reportedUser} open onOpenChange={open=>{if(!open)setRestriction(null);}} onConfirm={()=>setRestriction(null)}/>}
       {/* Table section */}
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -119,7 +137,7 @@ export function SafetyReportsTable() {
               <TableRow className="bg-muted/40">
                 <TableHead>Report ID</TableHead>
                 <TableHead>Report Type</TableHead>
-                <TableHead>Reported User</TableHead>
+                <TableHead>Reported member / Activity</TableHead>
                 <TableHead>Reporter</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Evidence</TableHead>
@@ -189,19 +207,10 @@ export function SafetyReportsTable() {
                             <Eye className="mr-2 h-4 w-4" /> View Details
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem>
-                            <ShieldAlert className="mr-2 h-4 w-4" /> Warn User
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <UserX className="mr-2 h-4 w-4" /> Suspend User
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-rose-600 dark:text-rose-400">
-                            <XCircle className="mr-2 h-4 w-4" /> Block User
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-muted-foreground">
-                            <CheckCircle2 className="mr-2 h-4 w-4" /> Dismiss Report
-                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={busy} onClick={()=>void review(report,"reviewing")}>Start review</DropdownMenuItem>
+                          <DropdownMenuItem disabled={busy} onClick={()=>void review(report,"resolved")}>Resolve report</DropdownMenuItem>
+                          <DropdownMenuItem disabled={busy} onClick={()=>void review(report,"dismissed")}>Dismiss report</DropdownMenuItem>
+                          <DropdownMenuItem disabled={!report.reportedUserId} onClick={()=>setRestriction(report)}><UserX className="mr-2 h-4 w-4"/>Restrict reported account</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -279,31 +288,17 @@ export function SafetyReportsTable() {
             <div className="border-t border-border pt-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Investigation Panel</p>
               <div className="grid grid-cols-1 gap-1.5">
-                {["User Chat Logs", "Event Participation", "Previous Reports", "User Activity History"].map((item) => (
-                  <button
-                    key={item}
-                    className="flex items-center gap-2 rounded-md border border-border/70 px-3 py-2 text-left text-sm hover:bg-muted/40 transition-colors"
-                  >
-                    <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                    {item}
-                  </button>
-                ))}
+                <Link className="rounded border p-2" href={selectedReport.sourceType==="event"?`/events/${selectedReport.targetId}`:`/users/${selectedReport.targetId}`}>Open reported {selectedReport.sourceType==="event"?"Activity":"member"}</Link>
+                {selectedReport.reportedUserId&&<Link className="rounded border p-2" href={`/users/${selectedReport.reportedUserId}`}>Member profile and participation</Link>}
+                <Button variant="outline" onClick={()=>{setSearch(selectedReport.reportedUser);setStatus("all");setPage(1);}}>Previous reports for this subject</Button>
               </div>
             </div>
 
             <div className="border-t border-border pt-4 space-y-2">
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <ShieldAlert className="mr-2 h-3.5 w-3.5" /> Warn User
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800">
-                <UserX className="mr-2 h-3.5 w-3.5" /> Suspend User
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800">
-                <XCircle className="mr-2 h-3.5 w-3.5" /> Block User
-              </Button>
-              <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground">
-                <CheckCircle2 className="mr-2 h-3.5 w-3.5" /> Dismiss Report
-              </Button>
+              <Button variant="outline" disabled={busy} onClick={()=>void review(selectedReport,"reviewing")}>Start review</Button>
+              <Button variant="outline" disabled={busy} onClick={()=>void review(selectedReport,"resolved")}>Resolve report</Button>
+              <Button variant="outline" disabled={busy} onClick={()=>void review(selectedReport,"dismissed")}>Dismiss report</Button>
+              <Button variant="outline" disabled={!selectedReport.reportedUserId} onClick={()=>setRestriction(selectedReport)}>Restrict reported account</Button>
             </div>
           </CardContent>
         </Card>

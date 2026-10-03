@@ -30,7 +30,7 @@ export default function EventParticipantsPage() {
           <p className="mt-1 text-sm text-muted-foreground">
             All users registered for{" "}
             <span className="font-medium text-foreground">{event.title}</span> ·{" "}
-            {event.attendees} / {event.maxAttendees} capacity
+            {event.attendees} joined · {event.maxAttendees > 0 ? `${event.maxAttendees} capacity` : "No participant limit"}
           </p>
         </div>
         <Button asChild variant="outline" size="sm">

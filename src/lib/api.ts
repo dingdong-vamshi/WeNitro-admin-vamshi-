@@ -148,11 +148,11 @@ async function participants(): Promise<ParticipantRow[]> {
   check("Unable to load activity participants", result.error);
   return (result.data ?? []) as unknown as ParticipantRow[];
 }
-async function reports(): Promise<[UserReportRow[], EventReportRow[]]> {
+async function reports(includeClosed = false): Promise<[UserReportRow[], EventReportRow[]]> {
   configured();
   const [userResult, eventResult] = await Promise.all([
-    supabase.from("tbl_user_reports").select("id,target_user_id,reporter_id,reason,description,created_at,status").in("status",["open","reviewing"]).order("created_at", { ascending: false }),
-    supabase.from("tbl_event_reports").select("id,event_id,reporter_id,reason,description,created_at,status").in("status",["open","reviewing"]).order("created_at", { ascending: false }),
+    supabase.from("tbl_user_reports").select("id,target_user_id,reporter_id,reason,description,created_at,status").in("status",includeClosed ? ["open","reviewing","resolved","dismissed"] : ["open","reviewing"]).order("created_at", { ascending: false }),
+    supabase.from("tbl_event_reports").select("id,event_id,reporter_id,reason,description,created_at,status").in("status",includeClosed ? ["open","reviewing","resolved","dismissed"] : ["open","reviewing"]).order("created_at", { ascending: false }),
   ]);
   check("Unable to load user reports", userResult.error);
   check("Unable to load activity reports", eventResult.error);
@@ -543,7 +543,19 @@ export async function getPushCampaigns(params?: { search?: string; status?: A.Pu
 export async function getEmailCampaigns(params?: { search?: string; status?: A.EmailCampaignStatus | "all"; page?: number; pageSize?: number }): Promise<{ rows: A.EmailCampaign[]; total: number }> { void params; return { rows: [], total: 0 }; }
 export async function getSystemAlerts(params?: { search?: string; status?: A.AlertStatus | "all"; page?: number; pageSize?: number }): Promise<{ rows: A.SystemAlertConfig[]; total: number }> { void params; return { rows: [], total: 0 }; }
 export async function getSecurityBlockedUsers(params?: { search?: string; reason?: A.BlockReason | "all"; country?: string; page?: number; pageSize?: number }): Promise<{ rows: A.SecurityBlockedUser[]; total: number }> { void params; return { rows: [], total: 0 }; }
-export async function getSafetyReports(params?: { search?: string; status?: A.SafetyReportStatus | "all"; reportType?: A.SafetyReportType | "all"; page?: number; pageSize?: number }): Promise<{ rows: A.SafetyReport[]; total: number }> { const [reportRows, userRows] = await Promise.all([reports(), users()]); const userMap = new Map(userRows.map((row) => [row.id, row])); const search = params?.search?.toLowerCase().trim() ?? ""; const rows: A.SafetyReport[] = reportRows[0].map((row) => { const target = userMap.get(row.target_user_id); const reporter = userMap.get(row.reporter_id); const text = row.reason.toLowerCase(); const reportType: A.SafetyReportType = text.includes("harass") ? "harassment" : text.includes("fake") ? "impersonation" : text.includes("spam") ? "spam" : "other"; return { id: String(row.id), reportType, reportedUser: target?.fullname || `User ${row.target_user_id}`, reportedUserId: String(row.target_user_id), reportedBy: reporter?.fullname || `User ${row.reporter_id}`, reportedByAvatar: reporter?.profile_image ?? "", status: "pending" as const, description: row.description || row.reason, evidenceCount: 0, createdAt: row.created_at }; }).filter((row) => (!search || row.id.includes(search) || row.reportedUser.toLowerCase().includes(search)) && (!params?.reportType || params.reportType === "all" || row.reportType === params.reportType) && (!params?.status || params.status === "all" || row.status === params.status)); return { rows: paginate(rows, params?.page ?? 1, params?.pageSize ?? 6), total: rows.length }; }
+export async function getSafetyReports(params?: { search?: string; status?: A.SafetyReportStatus | "all"; reportType?: A.SafetyReportType | "all"; page?: number; pageSize?: number }): Promise<{ rows: A.SafetyReport[]; total: number }> {
+ const [reportRows,userRows,eventRows]=await Promise.all([reports(true),users(),events()]);
+ const userMap=new Map(userRows.map(r=>[r.id,r])),eventMap=new Map(eventRows.map(r=>[r.id,r]));
+ const search=params?.search?.toLowerCase().trim()??"";
+ const rows:A.SafetyReport[]=[...reportRows[0].map(r=>({...r,sourceType:"user" as const,targetId:r.target_user_id})),...reportRows[1].map(r=>({...r,sourceType:"event" as const,targetId:r.event_id}))].map(row=>{
+ const event=row.sourceType==="event"?eventMap.get(row.targetId):undefined;
+ const target=userMap.get(event?.created_by??(row.sourceType==="user"?row.targetId:0)),reporter=userMap.get(row.reporter_id),text=row.reason.toLowerCase();
+ const reportType:A.SafetyReportType=text.includes("harass")?"harassment":text.includes("fake")?(row.sourceType==="event"?"fake_event":"impersonation"):text.includes("spam")?"spam":"other";
+ const status:A.SafetyReportStatus=row.status==="reviewing"?"investigating":row.status==="resolved"?"resolved":row.status==="dismissed"?"dismissed":"pending";
+ return {id:row.sourceType+"-"+row.id,sourceType:row.sourceType,sourceId:String(row.id),targetId:String(row.targetId),reportType,reportedUser:event?.title||target?.fullname||`${row.sourceType} ${row.targetId}`,reportedUserId:String(target?.id??""),reportedBy:reporter?.fullname||`User ${row.reporter_id}`,reportedByAvatar:(reporter?.fullname||"Member").slice(0,2).toUpperCase(),status,description:row.description||row.reason,evidenceCount:0,createdAt:row.created_at||""};
+ }).filter(r=>(!search||[r.id,r.reportedUser,r.reportedBy,r.description].some(v=>v.toLowerCase().includes(search)))&&(!params?.reportType||params.reportType==="all"||r.reportType===params.reportType)&&(!params?.status||params.status==="all"||r.status===params.status)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+ return {rows:paginate(rows,params?.page??1,params?.pageSize??6),total:rows.length};
+}
 export async function getAbuseAlerts(params?: { search?: string; severity?: "low" | "medium" | "high" | "all"; page?: number; pageSize?: number }): Promise<{ rows: A.AbuseAlert[]; total: number; aiStats: A.AiModerationStats }> { void params; return { rows: [], total: 0, aiStats: { flaggedMessages: 0, flaggedImages: 0, potentialFakeEvents: 0 } }; }
 export async function getIpActivities(params?: { search?: string; status?: A.IpStatus | "all"; page?: number; pageSize?: number }): Promise<{ rows: A.IpActivity[]; total: number }> { void params; return { rows: [], total: 0 }; }
 export async function getSecurityLogs(params?: { search?: string; category?: "all" | "admin_action" | "user_action" | "login_activity" | "security_change"; page?: number; pageSize?: number }): Promise<{ rows: A.SecurityLogEntry[]; total: number }> { void params; return { rows: [], total: 0 }; }

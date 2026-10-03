@@ -160,7 +160,7 @@ export function EventDetailCard({ event }: { event: EventDetail }) {
                   <p>
                     <span className="font-semibold">{event.attendees}</span>
                     {" / "}
-                    <span className="text-muted-foreground">{event.maxAttendees} capacity</span>
+                    <span className="text-muted-foreground">{event.maxAttendees > 0 ? `${event.maxAttendees} capacity` : "No participant limit"}</span>
                   </p>
                 </div>
               </div>

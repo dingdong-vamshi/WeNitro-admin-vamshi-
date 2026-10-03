@@ -999,7 +999,7 @@ export type SecurityBlockedUser = {
   violations: string[];
 };
 
-export type SafetyReportStatus = "pending" | "investigating" | "resolved";
+export type SafetyReportStatus = "pending" | "investigating" | "resolved" | "dismissed";
 
 export type SafetyReportType =
   | "harassment"
@@ -1011,6 +1011,9 @@ export type SafetyReportType =
 
 export type SafetyReport = {
   id: string;
+  sourceType: "user" | "event";
+  sourceId: string;
+  targetId: string;
   reportType: SafetyReportType;
   reportedUser: string;
   reportedUserId: string;
