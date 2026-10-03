@@ -69,7 +69,7 @@ export default function UserActivityPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Users / Activity History</p>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">{profile.name} Activity History</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Event creation, participation, ratings, reports, messages, and login activity.
+            Recorded Activity creation, participation, received ratings, reports, and messages. Login telemetry is not connected.
           </p>
         </div>
         <Button asChild variant="outline" size="sm">
@@ -83,7 +83,7 @@ export default function UserActivityPage() {
       {/* Summary strip */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {(Object.entries(activityMeta) as [ActivityType, (typeof activityMeta)[ActivityType]][]).map(([type, meta]) => {
-          const count = activities.filter((a) => a.type === type).length;
+          const count = type === "login" ? "Not tracked" : activities.filter((a) => a.type === type).length;
           const Icon = meta.icon;
           return (
             <div key={type} className="flex items-center gap-3 rounded-xl border border-border/70 bg-card px-4 py-3">
