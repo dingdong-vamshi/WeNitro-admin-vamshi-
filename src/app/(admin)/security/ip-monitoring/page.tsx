@@ -7,14 +7,14 @@ export default function IpMonitoringPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">IP Monitoring</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          IP monitoring requires a connected login telemetry and enforcement service.
+          Inspect retained Auth IP observations using your current Admin permissions.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Monitoring availability</CardTitle>
-          <CardDescription>Use the connected security audit and account restriction controls while IP telemetry is unavailable.</CardDescription>
+          <CardTitle>Recorded Auth IP observations</CardTitle>
+          <CardDescription>Actual recorded timestamps, IP addresses, Auth actions and mapped application actors.</CardDescription>
         </CardHeader>
         <CardContent>
           <IpMonitoringTable />

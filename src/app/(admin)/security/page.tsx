@@ -14,7 +14,7 @@ export default function SecurityPage() {
           { title: "Blocked Users", detail: "Centralized list of blocked accounts and appeals." },
           { title: "Safety Reports", detail: "Ingest community safety reports and escalation levels." },
           { title: "Abuse Detection", detail: "Monitor suspicious behavioral patterns and trust risk scores." },
-          { title: "IP Monitoring", detail: "Track login anomalies and geo/IP mismatch patterns." },
+          { title: "IP Monitoring", detail: "Inspect retained Auth IP observations and their recorded actors." },
           { title: "Security Logs", detail: "Audit admin actions and privileged event history." },
         ]}
       />
