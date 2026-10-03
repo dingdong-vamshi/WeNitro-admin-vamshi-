@@ -434,8 +434,8 @@ export async function getPendingReportItems(params?: { type?: string; page?: num
   const [[userRows, eventRows], vibeRows] = await Promise.all([reports(), vibeReports()]);
   const type = params?.type ?? "all";
   const rows: A.PendingReportItem[] = [
-    ...userRows.map(row => ({ id: `user-${row.id}`, type: 'user' as const, reportedItem: `User ${row.target_user_id}`, reportedItemId: String(row.target_user_id), date: row.created_at, reason: row.reason, details: row.description || '' })),
-    ...eventRows.map(row => ({ id: `event-${row.id}`, type: 'event' as const, reportedItem: `Activity ${row.event_id}`, reportedItemId: String(row.event_id), date: dateValue(row.created_at), reason: row.reason, details: row.description || '' })),
+    ...userRows.map(row => ({ id: `user-${row.id}`, type: 'user' as const, reportedItem: `User ${row.target_user_id}`, reportedItemId: String(row.target_user_id), date: row.created_at, reason: row.reason, details: row.description || '', status: row.status })),
+    ...eventRows.map(row => ({ id: `event-${row.id}`, type: 'event' as const, reportedItem: `Activity ${row.event_id}`, reportedItemId: String(row.event_id), date: dateValue(row.created_at), reason: row.reason, details: row.description || '', status: row.status })),
     ...vibeRows.map(row => ({ id: `vibe-${row.id}`, type: 'vibe' as const, reportedItem: `Vibe ${row.vibe_id}`, reportedItemId: String(row.vibe_id), date: row.created_at, reason: row.reason, details: row.details, status: row.status })),
   ].filter(row => type === 'all' || row.type === type).sort((a, b) => b.date.localeCompare(a.date));
   return { rows: paginate(rows, params?.page, params?.pageSize), total: rows.length };
@@ -571,7 +571,9 @@ export async function getSecurityInsights(): Promise<A.SecurityInsights> { const
 export async function getNotificationStats(): Promise<A.NotificationStats> { configured(); const result = await supabase.from("tbl_notifications").select("id,is_read"); check("Unable to load notification statistics", result.error); const totalSent = result.data?.length ?? 0; const opened = (result.data ?? []).filter((row) => row.is_read).length; return { totalSent, openRate: totalSent ? Math.round(opened * 100 / totalSent) : 0, clickRate: 0, unsubscribed: 0 }; }
 
 export async function getPlatformConfig(): Promise<A.PlatformConfig> { return { platformName: "WeNitro", supportEmail: "", defaultCurrency: "INR", defaultTimezone: "Asia/Kolkata", allowEventCreation: true, allowGuestBrowsing: false, requireEmailVerification: true, autoApproveEvents: false }; }
-export async function getEventCategories(): Promise<A.EventCategoryItem[]> { configured(); const result = await supabase.from("tbl_categories").select("id,name").order("name"); check("Unable to load event categories", result.error); return (result.data ?? []).map((row, index) => ({ id: String(row.id), name: row.name, icon: "", description: "", displayOrder: index + 1, status: "active" })); }
+export async function getEventCategories(): Promise<A.EventCategoryItem[]> {configured();const r=await supabase.from("tbl_categories").select("id,name,icon,description,display_order,is_enabled,archived_at").order("display_order").order("name");check("Unable to load categories",r.error);return (r.data??[]).map(c=>({id:String(c.id),name:c.name,icon:c.icon,description:c.description,displayOrder:c.display_order,status:c.is_enabled?"active":"disabled",archivedAt:c.archived_at}));}
+export async function saveEventCategory(id:string|null,category:Omit<A.EventCategoryItem,"id">,reason:string){configured();const r=await supabase.rpc("admin_save_category",{p_id:id?Number(id):null,p_name:category.name,p_icon:category.icon,p_description:category.description,p_order:category.displayOrder,p_enabled:category.status==="active",p_archived:!!category.archivedAt,p_reason:reason});check("Unable to save category",r.error);return r.data;}
+
 export async function getNotificationTemplates(): Promise<A.NotificationTemplate[]> { return []; }
 export async function getEmailTemplates(): Promise<A.EmailTemplate[]> { return []; }
 export async function getSupportedLanguages(): Promise<A.SupportedLanguage[]> { return []; }

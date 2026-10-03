@@ -1102,6 +1102,7 @@ export type PlatformConfig = {
 export type CategoryStatus = "active" | "disabled";
 
 export type EventCategoryItem = {
+  archivedAt: string | null;
   id: string;
   name: string;
   icon: string;
