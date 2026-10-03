@@ -6,7 +6,7 @@ export default function AdminRolesPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Admin Roles</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Define and manage the different administrator role types on the platform.
+          Review the administrator roles enforced by the platform.
         </p>
       </div>
       <AdminRolesScreen />

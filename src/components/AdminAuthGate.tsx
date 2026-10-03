@@ -43,7 +43,7 @@ function resolveAuthState(session: Session | null): AuthState {
   }
 
   const role = session.user.app_metadata?.role as AdminRole | undefined;
-  return role && ADMIN_ROLES.has(role)
+  return role && ADMIN_ROLES.has(role) && (!session.user.app_metadata.admin_status || session.user.app_metadata.admin_status === "active")
     ? { status: "authorized", session }
     : { status: "unauthorized", session };
 }
@@ -68,7 +68,7 @@ export function AdminAuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    void supabase.auth.getSession().then(({ data, error: sessionError }) => {
+    void supabase.auth.getSession().then(async ({ data, error: sessionError }) => {
       if (!active) return;
 
       if (sessionError) {
@@ -77,11 +77,17 @@ export function AdminAuthGate({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      setAuthState(resolveAuthState(data.session));
+      if (!data.session) { setAuthState({status:"signed-out"}); return; }
+      const current = await supabase.auth.getUser();
+      if (active) setAuthState(current.error || !current.data.user ? {status:"signed-out"} : resolveAuthState({...data.session,user:current.data.user}));
     });
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (active) setAuthState(resolveAuthState(session));
+      if (!session) { if (active) setAuthState({status:"signed-out"}); return; }
+      // Fetch current server metadata outside the auth callback lock.
+      setTimeout(() => { void supabase.auth.getUser().then(({data,error}) => {
+        if (active) setAuthState(error || !data.user ? {status:"signed-out"} : resolveAuthState({...session,user:data.user}));
+      }); },0);
     });
 
     return () => {

@@ -556,10 +556,22 @@ export async function getSupportedLanguages(): Promise<A.SupportedLanguage[]> { 
 export async function getFeatureToggles(): Promise<A.FeatureToggle[]> { return []; }
 export async function getSettingsSummary(): Promise<A.SettingsSummary> { return { activeCategories: (await getEventCategories()).length, notificationTemplates: 0, emailTemplates: 0, enabledLanguages: 0 }; }
 
-export async function getAdminRoles(): Promise<A.AdminRoleDefinition[]> { const accounts = await getAdminAccounts(); return ["Super Admin", "Finance Admin", "Moderator", "Support Admin", "Content Manager", "Analytics Manager"].map((name) => ({ id: name.toLowerCase().replaceAll(" ", "-"), name: name as A.AdminRoleType, description: "Role is managed through trusted Supabase app metadata.", assignedAdmins: accounts.filter((account) => account.role === name).length, createdAt: "" })); }
+export async function getAdminRoles(): Promise<A.AdminRoleDefinition[]> { const accounts = await getAdminAccounts(); return ["Super Admin", "Finance Admin", "Moderator"].map((name) => ({ id: name.toLowerCase().replaceAll(" ", "-"), name: name as A.AdminRoleType, description: "Role is managed through trusted Supabase app metadata.", assignedAdmins: accounts.filter((account) => account.role === name).length, createdAt: "" })); }
 export async function getRolePermissions(): Promise<A.RolePermissions[]> { return []; }
-export async function getAdminAccounts(): Promise<A.AdminAccount[]> { configured(); const result = await supabase.auth.getUser(); if (result.error) throw new Error(`Unable to load the signed-in administrator: ${result.error.message}`); const user = result.data.user; if (!user) return []; const rawRole = user.app_metadata.role; const role: A.AdminRoleType = rawRole === "super_admin" ? "Super Admin" : rawRole === "finance_admin" ? "Finance Admin" : rawRole === "admin" ? "Moderator" : "Support Admin"; return [{ id: user.id, fullName: String(user.user_metadata.full_name ?? user.email ?? "Administrator"), email: user.email ?? "", phone: user.phone ?? "", role, status: "active", twoFAEnabled: (user.factors?.length ?? 0) > 0, createdAt: user.created_at, lastLogin: user.last_sign_in_at ?? user.created_at, avatar: String(user.user_metadata.avatar_url ?? "") }]; }
-export async function getAdminActivityLogs(): Promise<A.AdminActivityLogEntry[]> { return []; }
+export async function getAdminAccounts(): Promise<A.AdminAccount[]> {
+  configured(); const result = await supabase.rpc("admin_accounts"); check("Unable to load administrators", result.error);
+  const roleNames: Record<string, A.AdminRoleType> = {super_admin: "Super Admin", admin: "Moderator", finance_admin: "Finance Admin"};
+  return ((result.data ?? []) as (Omit<A.AdminAccount,"role"> & {role:string})[]).map(row => ({...row, role: roleNames[row.role], lastLogin: row.lastLogin || ""}));
+}
+export async function setAdminAccountAccess(email: string, role: "super_admin" | "admin" | "finance_admin", status: A.AdminAccountStatus, reason: string) {
+  configured(); const result = await supabase.rpc("admin_set_account_access", {p_email: email, p_role: role, p_status: status, p_reason: reason});
+  check("Unable to update administrator access", result.error); return result.data;
+}
+
+export async function getAdminActivityLogs(): Promise<A.AdminActivityLogEntry[]> {
+ configured(); const result=await supabase.rpc("admin_access_logs"); check("Unable to load access audit",result.error);
+ return ((result.data??[]) as {id:number;admin:string;target:string;action:string;reason:string;createdAt:string}[]).map(row=>({id:String(row.id),adminId:"",adminName:row.admin,module:"Admin access",action:row.action+" — "+row.reason,targetName:row.target,targetType:"Administrator",timestamp:row.createdAt,ipAddress:"Not recorded"}));
+}
 export async function getAccessControlConfig(): Promise<A.AccessControlConfig> { return { allowedIps: [], sessionTimeoutMinutes: 60, maxLoginAttempts: 5, requireTwoFA: false, restrictToOfficeIp: false, autoLogoutInactive: true, policies: [] }; }
 export async function getAdminSecurityOverview(): Promise<A.AdminSecurityOverview> { const accounts = await getAdminAccounts(); return { totalAdmins: accounts.length, activeAdmins: accounts.filter((row) => row.status === "active").length, failedLoginAttempts: 0, lastAdminLogin: accounts[0]?.lastLogin ?? "", suspendedAdmins: accounts.filter((row) => row.status === "suspended").length, twoFAEnabledCount: accounts.filter((row) => row.twoFAEnabled).length }; }
 

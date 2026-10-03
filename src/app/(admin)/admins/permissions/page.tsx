@@ -6,7 +6,7 @@ export default function AdminPermissionsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Permissions</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Configure what each admin role is allowed to view, create, edit, and delete across modules.
+          Review the permissions enforced for each role. A Master assigns these roles to verified accounts.
         </p>
       </div>
       <AdminPermissionsScreen />

@@ -5,10 +5,10 @@ import { AdminRolesScreen } from "@/components/admin/admin-roles-screen";
 import { Card, CardContent } from "@/components/ui/card";
 
 const quickLinks = [
-  { href: "/admins/roles", icon: ShieldCheck, label: "Admin Roles", description: "Define and manage role types" },
-  { href: "/admins/permissions", icon: KeyRound, label: "Permissions", description: "Configure module access per role" },
-  { href: "/admins/add", icon: UserPlus, label: "Add Admin", description: "Create new admin accounts" },
-  { href: "/admins/activity-logs", icon: Activity, label: "Activity Logs", description: "Track all admin actions" },
+  { href: "/admins/roles", icon: ShieldCheck, label: "Admin Roles", description: "View enforced role types" },
+  { href: "/admins/permissions", icon: KeyRound, label: "Permissions", description: "Review enforced permissions" },
+  { href: "/admins/add", icon: UserPlus, label: "Add Admin", description: "Assign access to verified members" },
+  { href: "/admins/activity-logs", icon: Activity, label: "Activity Logs", description: "Review administrator access changes" },
   { href: "/admins/access-control", icon: Lock, label: "Access Control", description: "Manage security policies" },
 ];
 

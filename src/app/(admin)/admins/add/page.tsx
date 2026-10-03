@@ -6,7 +6,7 @@ export default function AddAdminPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Add Admin</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Create new admin accounts and manage existing administrators on the platform.
+          Assign access to verified members and manage existing administrators on the platform.
         </p>
       </div>
       <AddAdminScreen />

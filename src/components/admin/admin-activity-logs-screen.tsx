@@ -13,8 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
-const moduleOptions = ["All Modules", "Users", "Events", "Reports", "Settings", "Analytics", "Moderation", "Admins", "Notifications"];
-const actionOptions = ["All Actions", "Deleted Event", "Suspended User", "Banned User", "Updated Category", "Approved Sponsorship", "Resolved Report", "Exported Report", "Updated Feature Toggle", "Created Admin", "Verified User", "Escalated Report", "Removed Event"];
 
 const moduleColors: Record<string, string> = {
   Users: "text-sky-600 dark:text-sky-400",
@@ -35,6 +33,8 @@ export function AdminActivityLogsScreen() {
   const [actionFilter, setActionFilter] = useState("All Actions");
 
   const data = query.data ?? [];
+  const moduleOptions = ["All Modules", ...new Set(data.map(row => row.module))];
+  const actionOptions = ["All Actions", ...new Set(data.map(row => row.action))];
 
   const filtered = data.filter((log) => {
     const matchesSearch =
@@ -55,10 +55,13 @@ export function AdminActivityLogsScreen() {
             <div>
               <CardTitle>Admin Activity Logs</CardTitle>
               <CardDescription>
-                Track all actions performed by admins. {data.length} total entries.
+                Administrator access changes, newest first. Up to 500 records. Other operational audits remain on their respective screens.
               </CardDescription>
             </div>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" disabled={!filtered.length} onClick={() => {
+              const blob=new Blob([JSON.stringify(filtered,null,2)],{type:"application/json"});
+              const url=URL.createObjectURL(blob);const link=document.createElement("a");link.href=url;link.download="wenitro-admin-access-audit.json";link.click();URL.revokeObjectURL(url);
+            }}>
               <Download className="h-4 w-4" />
               Export Logs
             </Button>
@@ -99,6 +102,8 @@ export function AdminActivityLogsScreen() {
           </div>
         </CardHeader>
         <CardContent>
+          {query.error ? <p role="alert">{query.error.message}</p> : null}
+          {query.isLoading ? <p>Loading audit…</p> : null}
           <Table>
             <TableHeader>
               <TableRow>
