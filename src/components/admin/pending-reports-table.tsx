@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ClipboardList, MoreHorizontal, ShieldAlert, UserCog, CheckCircle2, ArrowUpCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { getPendingReportItems, reviewVibeReport } from "@/lib/api";
+import { getPendingReportItems, reviewVibeReport, reviewReport } from "@/lib/api";
 import { AdminDataState } from "@/components/admin/admin-data-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -48,7 +48,8 @@ export function PendingReportsTable() {
   const review = async (id: string, status: 'reviewing' | 'resolved' | 'dismissed') => {
     if (busyId) return;
     setBusyId(id); setActionError('');
-    try { await reviewVibeReport(id, status); await query.refetch(); }
+    try { if (id.startsWith("vibe-")) await reviewVibeReport(id,status);
+      else { const [type,rawId]=id.split("-"); if(type!=="user"&&type!=="event")throw new Error("Unsupported report type"); await reviewReport(type,rawId,status,"Reviewed from Admin pending report queue: "+status); } await query.refetch(); }
     catch (error) { setActionError(error instanceof Error ? error.message : 'Review failed'); }
     finally { setBusyId(null); }
   };
@@ -92,7 +93,7 @@ export function PendingReportsTable() {
               <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Type</TableHead>
               <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Reported Item</TableHead>
               <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Date</TableHead>
-              <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Assigned To</TableHead>
+              <TableHead className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</TableHead>
               <TableHead className="pr-4 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -130,10 +131,10 @@ export function PendingReportsTable() {
                 <TableCell className="py-3 text-sm font-medium">{report.reportedItem}<p className="text-xs text-muted-foreground">{report.reason}: {report.details}</p></TableCell>
                 <TableCell className="py-3 text-sm text-muted-foreground">{report.date}</TableCell>
                 <TableCell className="py-3">
-                  {report.assignedTo ? (
-                    <Badge variant="secondary">{report.assignedTo}</Badge>
+                  {report.status ? (
+                    <Badge variant="secondary">{report.status}</Badge>
                   ) : (
-                    <span className="text-xs text-muted-foreground">Unassigned</span>
+                    <span className="text-xs text-muted-foreground">Open</span>
                   )}
                 </TableCell>
                 <TableCell className="pr-4 py-3 text-right">
@@ -149,18 +150,18 @@ export function PendingReportsTable() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem onSelect={() => router.push("/moderation/investigation")}>
+                      <DropdownMenuItem onSelect={() => router.push(report.type === "user" ? `/users/${report.reportedItemId}` : `/events/${report.reportedItemId}`)}>
                         <ShieldAlert className="mr-2 h-3.5 w-3.5" /> Investigate
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <UserCog className="mr-2 h-3.5 w-3.5" /> Assign Moderator
+                      <DropdownMenuItem disabled={!!busyId} onSelect={() => void review(report.id,"reviewing")}>
+                        <UserCog className="mr-2 h-3.5 w-3.5" /> Start Review
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-emerald-600 dark:text-emerald-400">
+                      <DropdownMenuItem disabled={!!busyId} onSelect={() => void review(report.id,"resolved")} className="text-emerald-600 dark:text-emerald-400">
                         <CheckCircle2 className="mr-2 h-3.5 w-3.5" /> Resolve Report
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-rose-600 dark:text-rose-400">
-                        <ArrowUpCircle className="mr-2 h-3.5 w-3.5" /> Escalate
+                      <DropdownMenuItem disabled={!!busyId} onSelect={() => void review(report.id,"dismissed")} className="text-rose-600 dark:text-rose-400">
+                        <ArrowUpCircle className="mr-2 h-3.5 w-3.5" /> Dismiss
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>}

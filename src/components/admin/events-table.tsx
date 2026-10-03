@@ -382,16 +382,16 @@ export function EventsTable({
                               View Participants
                             </DropdownMenuItem>
                           {(event.status === "upcoming" || event.status === "ongoing") && (
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => router.push(`/events/${event.id}`)}>
                               <Star className="mr-2 h-3.5 w-3.5 text-blue-700" />
                               Feature activity
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => setModerateTarget({id:event.id,title:event.title})}>
                             <Bell className="mr-2 h-3.5 w-3.5" />
                             Send Notification
                           </DropdownMenuItem>
-                          {event.status !== "completed" && event.status !== "cancelled" && (
+                          {(
                             <DropdownMenuItem
                               onClick={() => setModerateTarget({ id: event.id, title: event.title })}
                             >
@@ -400,7 +400,7 @@ export function EventsTable({
                             </DropdownMenuItem>
                           )}
                           {(event.status === "upcoming" || event.status === "ongoing") && (
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setModerateTarget({id:event.id,title:event.title})}>
                               <XCircle className="mr-2 h-3.5 w-3.5 text-yellow-600" />
                               Cancel activity
                             </DropdownMenuItem>
@@ -505,12 +505,15 @@ export function EventsTable({
       </div>
 
       <EventDeleteDialog
+        eventId={deleteTarget?.id ?? ""}
         eventTitle={deleteTarget?.title ?? ""}
         open={deleteTarget !== null}
         onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
         onConfirm={() => {}}
       />
       <EventModerateDialog
+        key={moderateTarget?.id}
+        eventId={moderateTarget?.id ?? ""}
         eventTitle={moderateTarget?.title ?? ""}
         open={moderateTarget !== null}
         onOpenChange={(open) => { if (!open) setModerateTarget(null); }}

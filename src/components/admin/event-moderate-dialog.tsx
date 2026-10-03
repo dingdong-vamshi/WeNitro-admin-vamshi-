@@ -1,83 +1,16 @@
 "use client";
-
-import { useState } from "react";
-
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-
-export type ModerateAction = "warn_host" | "cancel_event" | "suspend_host" | "delete_event";
-
-const actions: Array<{ value: ModerateAction; label: string; description: string }> = [
-  { value: "warn_host", label: "Warn Host", description: "Send an official warning to the event host." },
-  { value: "cancel_event", label: "Cancel Event", description: "Cancel the event and notify all participants." },
-  { value: "suspend_host", label: "Suspend Host", description: "Temporarily suspend the host's account." },
-  { value: "delete_event", label: "Delete Event", description: "Permanently remove this event from the platform." },
-];
-
-export function EventModerateDialog({
-  eventTitle,
-  open,
-  onOpenChange,
-  onConfirm,
-}: {
-  eventTitle: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: (action: ModerateAction) => void;
-}) {
-  const [selected, setSelected] = useState<ModerateAction>("warn_host");
-
-  function handleConfirm() {
-    onConfirm(selected);
-    onOpenChange(false);
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Moderate Event</DialogTitle>
-          <DialogDescription>
-            Choose a moderation action for <span className="font-medium text-foreground">{eventTitle}</span>.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-2 py-1">
-          {actions.map((action) => (
-            <label
-              key={action.value}
-              className="flex cursor-pointer items-start gap-3 rounded-md border border-border px-3 py-2.5 text-sm transition-colors hover:bg-muted/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
-            >
-              <input
-                type="radio"
-                name="moderate-action"
-                value={action.value}
-                checked={selected === action.value}
-                onChange={() => setSelected(action.value)}
-                className="mt-0.5 accent-primary"
-              />
-              <div>
-                <p className="font-medium">{action.label}</p>
-                <p className="text-xs text-muted-foreground">{action.description}</p>
-              </div>
-            </label>
-          ))}
-        </div>
-
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleConfirm}>Confirm Action</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+import {useState} from "react";
+import {useQueryClient} from "@tanstack/react-query";
+import {moderateActivity} from "@/lib/api";
+import {Button} from "@/components/ui/button";
+import {Dialog,DialogContent,DialogDescription,DialogFooter,DialogHeader,DialogTitle} from "@/components/ui/dialog";
+export type ModerateAction="warn_host"|"cancel_event"|"suspend_host"|"delete_event"|"restore_event"|"notify_participants";
+type Props={eventId:string;eventTitle:string;open:boolean;onOpenChange:(open:boolean)=>void;onConfirm:(action:ModerateAction)=>void;initialAction?:ModerateAction;deleteOnly?:boolean};
+const actions:[ModerateAction,string][]=[["warn_host","Warn host (in-app notice)"],["notify_participants","Notify host and registered participants (in-app)"],["cancel_event","Cancel activity"],["suspend_host","Suspend host for 30 days"],["delete_event","Remove activity (history retained)"],["restore_event","Restore removed or cancelled unpaid activity"]];
+export function EventModerateDialog({eventId,eventTitle,open,onOpenChange,onConfirm,initialAction="warn_host",deleteOnly=false}:Props){
+ const cache=useQueryClient();const [action,setAction]=useState<ModerateAction>(initialAction);const [reason,setReason]=useState("");const [busy,setBusy]=useState(false);const [error,setError]=useState("");
+ async function save(){setBusy(true);setError("");try{await moderateActivity(eventId,deleteOnly?"delete_event":action,reason);await cache.invalidateQueries();onConfirm(action);onOpenChange(false);}catch(e){setError(e instanceof Error?e.message:"Could not save moderation");}finally{setBusy(false);}}
+ return <Dialog open={open} onOpenChange={busy?()=>{}:onOpenChange}><DialogContent><DialogHeader><DialogTitle>{deleteOnly?"Remove activity":"Moderate activity"}</DialogTitle><DialogDescription>{eventTitle}. Removal and cancellation send an in-app notice and retain history. Payments are not automatically refunded.</DialogDescription></DialogHeader>
+ {!deleteOnly&&<label>Action<select aria-label="Moderation action" className="mt-1 w-full rounded border bg-background p-2" value={action} onChange={e=>setAction(e.target.value as ModerateAction)}>{actions.map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label>}
+ <label>Reason or message<textarea aria-label="Moderation reason" className="mt-1 w-full rounded border bg-background p-2" minLength={5} maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>{error&&<p role="alert" className="text-destructive">{error}</p>}<DialogFooter><Button variant="outline" disabled={busy} onClick={()=>onOpenChange(false)}>Cancel</Button><Button disabled={busy||reason.trim().length<5} onClick={save}>{busy?"Saving…":"Save moderation action"}</Button></DialogFooter></DialogContent></Dialog>;
 }

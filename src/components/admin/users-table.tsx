@@ -327,13 +327,13 @@ export function UsersTable({ initialStatus = "all" }: { initialStatus?: UserStat
                             <DropdownMenuItem onSelect={() => router.push(`/users/${user.id}`)}>View Profile</DropdownMenuItem>
                             <DropdownMenuItem onSelect={() => router.push(`/users/${user.id}/activity`)}>Activity History</DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            {user.status !== "verified" ? <DropdownMenuItem>Verify User</DropdownMenuItem> : null}
+                            {user.status !== "verified" ? <DropdownMenuItem onSelect={() => router.push("/verification")}>Review verification</DropdownMenuItem> : null}
                             {user.status === "active" || user.status === "verified" ? (
-                              <DropdownMenuItem>Suspend Account</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => setBanTarget(user)}>Suspend Account</DropdownMenuItem>
                             ) : null}
-                            {user.status === "blocked" ? <DropdownMenuItem>Unblock User</DropdownMenuItem> : <DropdownMenuItem>Block User</DropdownMenuItem>}
+
                             <DropdownMenuSeparator />
-                            {user.status === "banned" ? (
+                            {user.status === "banned" || user.status === "suspended" || user.status === "blocked" ? (
                               <DropdownMenuItem onSelect={() => setUnbanTarget(user)}>Unban User</DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem className="text-destructive" onSelect={() => setBanTarget(user)}>
@@ -426,8 +426,8 @@ export function UsersTable({ initialStatus = "all" }: { initialStatus?: UserStat
       </div>
 
       <BanUserDialog
+        userId={banTarget?.id ?? ""}
         userName={banTarget?.name ?? ""}
-        banReason="Repeated harassment reports"
         open={banTarget !== null}
         onOpenChange={(open) => {
           if (!open) {
@@ -437,6 +437,7 @@ export function UsersTable({ initialStatus = "all" }: { initialStatus?: UserStat
         onConfirm={() => setBanTarget(null)}
       />
       <UnbanUserDialog
+        userId={unbanTarget?.id ?? ""}
         userName={unbanTarget?.name ?? ""}
         open={unbanTarget !== null}
         onOpenChange={(open) => {

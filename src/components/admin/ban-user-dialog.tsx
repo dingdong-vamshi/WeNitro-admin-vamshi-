@@ -1,143 +1,18 @@
 "use client";
-
-import { useState } from "react";
-
-import type { BanDuration } from "@/types/admin";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-
-const durationLabels: Record<BanDuration, string> = {
-  permanent: "Permanent",
-  "30d": "30 Days",
-  "90d": "90 Days",
-};
-
-export function BanUserDialog({
-  userName,
-  banReason,
-  open,
-  onOpenChange,
-  onConfirm,
-}: {
-  userName: string;
-  banReason?: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: (duration: BanDuration) => void;
-}) {
-  const [duration, setDuration] = useState<BanDuration>("permanent");
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Ban User</DialogTitle>
-          <DialogDescription>
-            This will restrict the user from accessing the platform.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-1">
-          <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
-            <p className="text-muted-foreground">User</p>
-            <p className="mt-0.5 font-medium">{userName}</p>
-            {banReason && (
-              <>
-                <p className="mt-2 text-muted-foreground">Reason</p>
-                <p className="mt-0.5">{banReason}</p>
-              </>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Ban Duration</p>
-            <div className="flex flex-col gap-2">
-              {(["permanent", "30d", "90d"] as BanDuration[]).map((d) => (
-                <label
-                  key={d}
-                  className="flex cursor-pointer items-center gap-2.5 rounded-md border border-border px-3 py-2 text-sm transition-colors hover:bg-muted/50 has-[:checked]:border-primary has-[:checked]:bg-primary/5"
-                >
-                  <input
-                    type="radio"
-                    name="ban-duration"
-                    value={d}
-                    checked={duration === d}
-                    onChange={() => setDuration(d)}
-                    className="accent-primary"
-                  />
-                  {durationLabels[d]}
-                </label>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={() => {
-              onConfirm(duration);
-              onOpenChange(false);
-            }}
-          >
-            Confirm Ban
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+import {useState} from "react";
+import {useQueryClient} from "@tanstack/react-query";
+import {moderateUser} from "@/lib/api";
+import type {BanDuration} from "@/types/admin";
+import {Button} from "@/components/ui/button";
+import {Dialog,DialogContent,DialogDescription,DialogFooter,DialogHeader,DialogTitle} from "@/components/ui/dialog";
+type Props={userId:string;userName:string;banReason?:string;open:boolean;onOpenChange:(value:boolean)=>void;onConfirm:(duration:BanDuration)=>void};
+function RestrictionDialog({userId,userName,open,onOpenChange,onConfirm,restore=false}:Props&{restore?:boolean}){
+ const cache=useQueryClient();const [duration,setDuration]=useState<BanDuration>("30d");const [reason,setReason]=useState("");const [busy,setBusy]=useState(false);const [error,setError]=useState("");
+ async function save(){setBusy(true);setError("");try{await moderateUser(userId,restore?"restore":duration,reason);await cache.invalidateQueries();onConfirm(duration);onOpenChange(false);setReason("");}catch(e){setError(e instanceof Error?e.message:"Could not save restriction");}finally{setBusy(false);}}
+ return <Dialog open={open} onOpenChange={busy?()=>{}:onOpenChange}><DialogContent><DialogHeader><DialogTitle>{restore?"Lift Admin restriction":"Restrict account"}</DialogTitle><DialogDescription>{userName}. {restore?"Remove the Admin ban. Other account restrictions remain in effect.":"Restrict sign-in, existing-session data access and qualifying badge actions. History is retained."}</DialogDescription></DialogHeader>
+ {!restore&&<label>Duration<select aria-label="Restriction duration" className="mt-1 block w-full rounded border bg-background p-2" value={duration} onChange={e=>setDuration(e.target.value as BanDuration)}><option value="30d">30 days</option><option value="90d">90 days</option><option value="permanent">Until an Admin restores access</option></select></label>}
+ <label>Reason<textarea aria-label="Restriction reason" className="mt-1 w-full rounded border bg-background p-2" minLength={5} maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>{error&&<p role="alert" className="text-destructive">{error}</p>}
+ <DialogFooter><Button variant="outline" disabled={busy} onClick={()=>onOpenChange(false)}>Cancel</Button><Button disabled={busy||reason.trim().length<5} onClick={save}>{busy?"Saving…":restore?"Restore access":"Save restriction"}</Button></DialogFooter></DialogContent></Dialog>;
 }
-
-export function UnbanUserDialog({
-  userName,
-  open,
-  onOpenChange,
-  onConfirm,
-}: {
-  userName: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Unban User</DialogTitle>
-          <DialogDescription>
-            This will restore full platform access for this user.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
-          <p className="text-muted-foreground">User</p>
-          <p className="mt-0.5 font-medium">{userName}</p>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={() => {
-              onConfirm();
-              onOpenChange(false);
-            }}
-          >
-            Unban User
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
+export function BanUserDialog(props:Props){return <RestrictionDialog {...props}/>;}
+export function UnbanUserDialog(props:Omit<Props,"onConfirm">&{onConfirm:()=>void}){return <RestrictionDialog {...props} restore/>;}

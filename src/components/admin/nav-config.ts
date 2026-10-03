@@ -184,7 +184,7 @@ export const navSections: NavSection[] = [
       { label: "Activity Logs", href: "/admins/activity-logs" },
       { label: "Access Control", href: "/admins/access-control" },
     ],
-    allowedRoles: [],
+    allowedRoles: ["super_admin"],
   },
 ];
 
@@ -194,9 +194,8 @@ const routeRules: Array<{ prefix: string; roles: AdminRole[] }> = [
   { prefix: "/business/transactions", roles: FINANCE_ROLES },
   { prefix: "/business/settlements", roles: FINANCE_ROLES },
   { prefix: "/business", roles: OPERATIONS_ROLES },
-  // These screens are local mock state only. Keep them unreachable until a
-  // server-authoritative provisioning and permissions workflow is shipped.
-  { prefix: "/admins", roles: [] },
+  // Master-only account provisioning and immutable access audit.
+  { prefix: "/admins", roles: ["super_admin"] },
 ];
 
 export function isAdminPathAllowed(pathname: string, role: AdminRole) {

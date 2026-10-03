@@ -2,6 +2,7 @@ import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import type * as A from "@/types/admin";
 
 type UserRow = {
+  banned_until?: string | null; is_admin_restricted?: boolean;
   account_type: A.AccountType;
   id: number; fullname: string; username: string; email: string;
   profile_image: string | null; nationality: string | null; countrycode: string | null;
@@ -17,8 +18,8 @@ type EventRow = {
   is_cancelled: boolean | null; is_deleted: boolean | null; media: unknown;
 };
 type ParticipantRow = { id: number; event_id: number; user_id: number; status: string; joined_at: string | null; created_at: string };
-type UserReportRow = { id: number; target_user_id: number; reporter_id: number; reason: string; description: string | null; created_at: string };
-type EventReportRow = { id: number; event_id: number; reporter_id: number; reason: string; description: string | null; created_at: string | null };
+type UserReportRow = { status:string; id: number; target_user_id: number; reporter_id: number; reason: string; description: string | null; created_at: string };
+type EventReportRow = { status:string; id: number; event_id: number; reporter_id: number; reason: string; description: string | null; created_at: string | null };
 type VibeReportRow = { id: number; vibe_id: number; reported_by: number; reason: string; details: string; status: string; created_at: string };
 type ActivityPaymentRow = {
   id: number | string;
@@ -53,6 +54,7 @@ const paginate = <T,>(rows: T[], page = 1, pageSize = 10) => rows.slice((page - 
 const formatNumber = (value: number) => new Intl.NumberFormat("en-IN").format(value);
 
 function userStatus(user: UserRow): A.UserStatus {
+  if (user.is_admin_restricted) return user.banned_until && new Date(user.banned_until).getFullYear() > new Date().getFullYear()+10 ? "banned" : "suspended";
   if (user.is_delete === 1) return "banned";
   if (user.is_active === 0) return "suspended";
   return user.isverified === 1 ? "verified" : "active";
@@ -149,8 +151,8 @@ async function participants(): Promise<ParticipantRow[]> {
 async function reports(): Promise<[UserReportRow[], EventReportRow[]]> {
   configured();
   const [userResult, eventResult] = await Promise.all([
-    supabase.from("tbl_user_reports").select("id,target_user_id,reporter_id,reason,description,created_at").order("created_at", { ascending: false }),
-    supabase.from("tbl_event_reports").select("id,event_id,reporter_id,reason,description,created_at").order("created_at", { ascending: false }),
+    supabase.from("tbl_user_reports").select("id,target_user_id,reporter_id,reason,description,created_at,status").in("status",["open","reviewing"]).order("created_at", { ascending: false }),
+    supabase.from("tbl_event_reports").select("id,event_id,reporter_id,reason,description,created_at,status").in("status",["open","reviewing"]).order("created_at", { ascending: false }),
   ]);
   check("Unable to load user reports", userResult.error);
   check("Unable to load activity reports", eventResult.error);
@@ -402,8 +404,8 @@ export async function getUserActivity(userId: string): Promise<A.UserActivity[]>
   return [...(hosted.data ?? []).map((row) => ({ id: `event-${row.id}`, userId, type: "event_created" as const, description: `Created ${row.title}`, date: dateValue(row.created_at) })), ...(joined.data ?? []).map((row) => ({ id: `join-${row.id}`, userId, type: "event_joined" as const, description: `Joined activity ${row.event_id}`, date: row.created_at })), ...(messages.data ?? []).map((row) => ({ id: `message-${row.id}`, userId, type: "message_sent" as const, description: "Sent a chat message", date: dateValue(row.created_at) })), ...(receivedReports.data ?? []).map((row) => ({ id: `report-${row.id}`, userId, type: "report_received" as const, description: "Received a user report", date: row.created_at }))].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
 export async function getVerifiedUsers(): Promise<A.UserProfile[]> { const rows = (await users()).filter((row) => row.isverified === 1); const profiles = await Promise.all(rows.map((row) => getUserProfile(String(row.id)))); return profiles.filter((row): row is A.UserProfile => row !== null); }
-export async function getBlockedUsers(): Promise<A.UserProfile[]> { return []; }
-export async function getSuspendedUsers(): Promise<A.UserProfile[]> { const rows = (await users()).filter((row) => row.is_active === 0 && row.is_delete !== 1); const profiles = await Promise.all(rows.map((row) => getUserProfile(String(row.id)))); return profiles.filter((row): row is A.UserProfile => row !== null); }
+export async function getBlockedUsers(): Promise<A.UserProfile[]> { const rows=(await users()).filter(row=>row.is_admin_restricted); return (await Promise.all(rows.map(row=>getUserProfile(String(row.id))))).filter((row):row is A.UserProfile=>row!==null); }
+export async function getSuspendedUsers(): Promise<A.UserProfile[]> { const rows = (await users()).filter((row) => (row.is_active === 0 || row.is_admin_restricted) && row.is_delete !== 1); const profiles = await Promise.all(rows.map((row) => getUserProfile(String(row.id)))); return profiles.filter((row): row is A.UserProfile => row !== null); }
 export async function getEventDetail(id: string): Promise<A.EventDetail | null> {
   const numericId = Number(id); if (!Number.isInteger(numericId)) return null; const [eventRows, userRows, participantRows, categoryMap] = await Promise.all([events(), users(), participants(), categories()]); const event = eventRows.find((row) => row.id === numericId); if (!event) return null;
   const counts = new Map([[numericId, participantRows.filter((row) => row.event_id === numericId && isApprovedParticipant(row)).length]]); const mapped = mapEvent(event, new Map(userRows.map((row) => [row.id, row])), counts, categoryMap); let photos = 0; let videos = 0;
@@ -593,3 +595,13 @@ export async function getVerificationPreview(id: number) {
 }
 export async function reviewVerification(id: number, status: "approved" | "rejected", notes = "Reviewed in WeNitro Admin") { configured(); const result = await supabase.rpc("admin_review_verification", { p_verification_id: id, p_status: status, p_review_notes: notes }); check("Unable to review verification", result.error); return result.data; }
 export async function getUserInterests(userId?: string) { configured(); let query = supabase.from("tbl_user_interests").select("id,user_id,category_id,created_at,tbl_categories(name)").order("created_at", { ascending: false }); if (userId !== undefined) query = query.eq("user_id", Number(userId)); const result = await query; check("Unable to load user interests", result.error); return result.data ?? []; }
+
+export async function moderateUser(id:string,duration:"permanent"|"30d"|"90d"|"restore",reason:string){
+ configured();const result=await supabase.rpc("admin_moderate_user",{p_user_id:Number(id),p_duration:duration,p_reason:reason});check("Unable to update restriction",result.error);return result.data;
+}
+export async function moderateActivity(id:string,action:string,reason:string){
+ configured();const result=await supabase.rpc("admin_moderate_activity",{p_event_id:Number(id),p_action:action,p_reason:reason});check("Unable to moderate activity",result.error);return result.data;
+}
+export async function reviewReport(type:"user"|"event",id:string,status:string,reason:string){
+ configured();const result=await supabase.rpc("admin_review_report",{p_type:type,p_id:Number(id),p_status:status,p_reason:reason});check("Unable to review report",result.error);return result.data;
+}
