@@ -1082,8 +1082,8 @@ export type SecurityLogEntry = {
 export type SecurityInsights = {
   totalBlockedUsers: number;
   activeSafetyReports: number;
-  suspiciousIps: number;
-  abuseAlertsToday: number;
+  suspiciousIps: number | null;
+  abuseAlertsToday: number | null;
 };
 
 // ── Settings Module ───────────────────────────────────────────────────────────

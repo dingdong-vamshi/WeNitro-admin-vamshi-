@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {AdminDataState} from "@/components/admin/admin-data-state";
 import { useDebounce } from "@/hooks/use-debounce";
 
 type LogCategory = "all" | "admin_action" | "user_action" | "login_activity" | "security_change";
@@ -72,11 +73,14 @@ export function SecurityLogsTable() {
     return Math.max(1, Math.ceil(query.data.total / pageSize));
   }, [query.data]);
 
+  function exportLogs(rows:SecurityLogEntry[]){const url=URL.createObjectURL(new Blob([JSON.stringify(rows,null,2)],{type:"application/json"}));const a=document.createElement("a");a.href=url;a.download="wenitro-security-audit.json";a.click();URL.revokeObjectURL(url);}
+  if(query.isError)return <AdminDataState title="security audit" error={query.error} onRetry={()=>void query.refetch()}/>;
   const selectCls =
     "h-9 appearance-none rounded-lg border border-border/70 bg-background px-3 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40";
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
+      <p className="text-sm text-muted-foreground xl:col-span-2">Recorded Admin moderation and account restrictions, newest 1,000 operations. Authentication and IP telemetry are not connected to this view.</p>
       {/* Table section */}
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -98,8 +102,8 @@ export function SecurityLogsTable() {
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>
-          <Button variant="outline" size="sm" className="flex items-center gap-2">
-            <Download className="h-4 w-4" /> Export
+          <Button onClick={()=>exportLogs(query.data?.rows??[])} variant="outline" size="sm" className="flex items-center gap-2">
+            <Download className="h-4 w-4" /> Export visible page
           </Button>
         </div>
 
@@ -242,13 +246,11 @@ export function SecurityLogsTable() {
             </div>
 
             <div className="border-t border-border pt-4 space-y-2">
-              <Button variant="outline" size="sm" className="w-full justify-start">
-                <Eye className="mr-2 h-3.5 w-3.5" /> View Full Details
-              </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
+
+              <Button onClick={()=>exportLogs([selectedLog])} variant="outline" size="sm" className="w-full justify-start">
                 <Download className="mr-2 h-3.5 w-3.5" /> Export This Log
               </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
+              <Button onClick={()=>{setSearch(selectedLog.targetId||selectedLog.actor);setPage(1);setCategory("all");}} variant="outline" size="sm" className="w-full justify-start">
                 <Lock className="mr-2 h-3.5 w-3.5" /> Search Related Logs
               </Button>
             </div>

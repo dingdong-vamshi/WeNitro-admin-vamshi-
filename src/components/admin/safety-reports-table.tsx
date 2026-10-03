@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, FileText, UserX, Eye, CheckCircle2, XCircle, Clock } from "lucide-react";
 
@@ -70,6 +70,7 @@ export function SafetyReportsTable() {
   const [page, setPage] = useState(1);
   const [selectedReport, setSelectedReport] = useState<SafetyReport | null>(null);
   const debouncedSearch = useDebounce(search);
+  useEffect(()=>{setSearch(new URLSearchParams(window.location.search).get("search")||"");},[]);
   const pageSize = 6;
 
   const query = useQuery({

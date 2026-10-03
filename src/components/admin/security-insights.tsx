@@ -75,7 +75,7 @@ export function SecurityInsightsSection() {
                   <Icon className={`h-5 w-5 ${card.colorClass}`} />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold tabular-nums">{query.data[card.key].toLocaleString()}</p>
+                  <p className="text-2xl font-bold tabular-nums">{query.data[card.key]?.toLocaleString() ?? "Not configured"}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{card.label}</p>
                 </div>
               </div>

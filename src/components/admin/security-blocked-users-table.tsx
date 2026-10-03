@@ -18,6 +18,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {useRouter} from "next/navigation";
+import {BanUserDialog,UnbanUserDialog} from "@/components/admin/ban-user-dialog";
+import {AdminDataState} from "@/components/admin/admin-data-state";
 import { useDebounce } from "@/hooks/use-debounce";
 
 const reasonVariant: Record<BlockReason, "danger" | "warning" | "caution" | "info" | "secondary"> = {
@@ -41,6 +44,9 @@ const reasonLabel: Record<BlockReason, string> = {
 const reasons: Array<BlockReason | "all"> = ["all", "abuse", "harassment", "spam", "fraud", "fake_profile", "other"];
 
 export function SecurityBlockedUsersTable() {
+  const router=useRouter();
+  const [restrict,setRestrict]=useState<SecurityBlockedUser|null>(null);
+  const [restore,setRestore]=useState<SecurityBlockedUser|null>(null);
   const [search, setSearch] = useState("");
   const [reason, setReason] = useState<BlockReason | "all">("all");
   const [country, setCountry] = useState("all");
@@ -64,11 +70,14 @@ export function SecurityBlockedUsersTable() {
     return Math.max(1, Math.ceil(query.data.total / pageSize));
   }, [query.data]);
 
+  if(query.isError)return <AdminDataState title="restricted accounts" error={query.error} onRetry={()=>void query.refetch()}/>;
   const selectCls =
     "h-9 appearance-none rounded-lg border border-border/70 bg-background px-3 pr-8 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40";
 
   return (
     <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+      {restrict&&<BanUserDialog userId={restrict.id} userName={restrict.name} open onOpenChange={open=>{if(!open)setRestrict(null)}} onConfirm={()=>setRestrict(null)}/>}
+      {restore&&<UnbanUserDialog userId={restore.id} userName={restore.name} open onOpenChange={open=>{if(!open)setRestore(null)}} onConfirm={()=>{setRestore(null);setSelectedUser(null)}}/>}
       {/* Table section */}
       <div className="space-y-4">
         {/* Filters */}
@@ -171,15 +180,15 @@ export function SecurityBlockedUsersTable() {
                         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSelectedUser(user); }}>
                           <Eye className="mr-2 h-4 w-4" /> View Profile
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={()=>router.push(`/security/safety-reports?search=${encodeURIComponent(user.name)}`)}>
                           <FileText className="mr-2 h-4 w-4" /> View Reports
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-emerald-600 dark:text-emerald-400">
+                        <DropdownMenuItem onClick={()=>setRestore(user)} className="text-emerald-600 dark:text-emerald-400">
                           <RotateCcw className="mr-2 h-4 w-4" /> Unblock User
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="text-rose-600 dark:text-rose-400">
-                          <Ban className="mr-2 h-4 w-4" /> Permanent Ban
+                        <DropdownMenuItem onClick={()=>setRestrict(user)} className="text-rose-600 dark:text-rose-400">
+                          <Ban className="mr-2 h-4 w-4" /> Change restriction
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -252,17 +261,17 @@ export function SecurityBlockedUsersTable() {
             </div>
 
             <div className="border-t border-border pt-4 space-y-2">
-              <Button variant="outline" size="sm" className="w-full justify-start text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">
+              <Button onClick={()=>setRestore(selectedUser)} variant="outline" size="sm" className="w-full justify-start text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800">
                 <RotateCcw className="mr-2 h-3.5 w-3.5" /> Unblock User
               </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
+              <Button onClick={()=>router.push(`/users/${selectedUser.id}/activity`)} variant="outline" size="sm" className="w-full justify-start">
                 <Eye className="mr-2 h-3.5 w-3.5" /> View Activity
               </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start">
+              <Button onClick={()=>router.push(`/security/safety-reports?search=${encodeURIComponent(selectedUser.name)}`)} variant="outline" size="sm" className="w-full justify-start">
                 <FileText className="mr-2 h-3.5 w-3.5" /> View Reports
               </Button>
-              <Button variant="outline" size="sm" className="w-full justify-start text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800">
-                <Ban className="mr-2 h-3.5 w-3.5" /> Permanent Ban
+              <Button onClick={()=>setRestrict(selectedUser)} variant="outline" size="sm" className="w-full justify-start text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800">
+                <Ban className="mr-2 h-3.5 w-3.5" /> Change restriction
               </Button>
             </div>
           </CardContent>
