@@ -30,7 +30,7 @@ export default function HostPerformancePage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Host Performance</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Evaluate host quality based on ratings, completion rates, and participation.
+          Hosts are ranked by their stored member rating × 20 (out of 100). Completion is completed hosted Activities divided by all hosted Activities. Participants include approved or paid records; this is not an Activity-specific rating.
         </p>
       </div>
 

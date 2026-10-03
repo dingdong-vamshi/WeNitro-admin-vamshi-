@@ -825,6 +825,7 @@ export type ActivityTimelinePoint = {
 };
 
 export type PlatformActivityData = {
+  observedSince: string | null;
   stats: {
     dau: number;
     eventsCreatedToday: number;

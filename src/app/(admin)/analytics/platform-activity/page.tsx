@@ -24,9 +24,9 @@ export default function PlatformActivityPage() {
 
   const stats = [
     { label: "Daily Active Users",   value: data.stats.dau.toLocaleString(),                Icon: Users,         color: "text-chart-1" },
-    { label: "Events Created Today", value: data.stats.eventsCreatedToday.toLocaleString(), Icon: CalendarDays,  color: "text-chart-2" },
-    { label: "Messages Sent",        value: data.stats.messagesSent.toLocaleString(),        Icon: MessageSquare, color: "text-chart-3" },
-    { label: "Reports Submitted",    value: data.stats.reportsSubmitted.toLocaleString(),    Icon: Flag,          color: "text-chart-4" },
+    { label: "Events Created Today (UTC)", value: data.stats.eventsCreatedToday.toLocaleString(), Icon: CalendarDays,  color: "text-chart-2" },
+    { label: "Messages Sent (All Time)",        value: data.stats.messagesSent.toLocaleString(),        Icon: MessageSquare, color: "text-chart-3" },
+    { label: "Reports Submitted (All Time)",    value: data.stats.reportsSubmitted.toLocaleString(),    Icon: Flag,          color: "text-chart-4" },
   ];
 
   const csvRows = data.timeline.map((t) => ({
@@ -42,7 +42,7 @@ export default function PlatformActivityPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Platform Activity</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Overview of overall platform health: active users, event creation, messaging, and moderation signals.
+          Daily active users are observed signed-in members today (UTC). Observation started {data.observedSince ?? "when the first member is observed"}. The selected range applies to the timeline below; message and report totals cover stored history.
         </p>
       </div>
 
