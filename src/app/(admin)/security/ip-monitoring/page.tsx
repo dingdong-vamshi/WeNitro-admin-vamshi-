@@ -7,14 +7,14 @@ export default function IpMonitoringPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">IP Monitoring</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Detect suspicious login patterns, geolocation anomalies, and multi-account IPs.
+          IP monitoring requires a connected login telemetry and enforcement service.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>IP Activity</CardTitle>
-          <CardDescription>Monitor IP addresses for abnormal login behavior and multi-account activity.</CardDescription>
+          <CardTitle>Monitoring availability</CardTitle>
+          <CardDescription>Use the connected security audit and account restriction controls while IP telemetry is unavailable.</CardDescription>
         </CardHeader>
         <CardContent>
           <IpMonitoringTable />

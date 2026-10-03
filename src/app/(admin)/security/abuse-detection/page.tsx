@@ -7,14 +7,14 @@ export default function AbuseDetectionPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Abuse Detection</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          AI-powered detection of spam, offensive content, fake events, and suspicious behavioral patterns.
+          Review member-submitted safety concerns and current account restrictions.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Abuse Alerts</CardTitle>
-          <CardDescription>Review automatically flagged violations and take action on detected abuse.</CardDescription>
+          <CardTitle>Member report review</CardTitle>
+          <CardDescription>Inspect actual allegations before deciding on report status or an account restriction.</CardDescription>
         </CardHeader>
         <CardContent>
           <AbuseDetectionTable />

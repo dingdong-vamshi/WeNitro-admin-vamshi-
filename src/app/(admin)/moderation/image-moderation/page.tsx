@@ -7,14 +7,14 @@ export default function ImageModerationPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Image Moderation</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Review event photos flagged for nudity, violence, offensive symbols, or spam advertisements.
+          Review member reports about media and open the reported content.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Moderation Queue</CardTitle>
-          <CardDescription>AI-detected labels are shown on each image. Approve or remove images to clear the queue.</CardDescription>
+          <CardTitle>Media-related member reports</CardTitle>
+          <CardDescription>Automated image classification is unavailable. Manual report decisions and existing content controls remain available.</CardDescription>
         </CardHeader>
         <CardContent>
           <ImageModerationQueueGrid />

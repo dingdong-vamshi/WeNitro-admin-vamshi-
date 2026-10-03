@@ -7,14 +7,14 @@ export default function InvestigationPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Investigation Panel</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Deep-dive into reported accounts — review event history, chat logs, uploaded images, risk scores, and take disciplinary action.
+          Review submitted reports, current account status and activity history, with recorded report decisions and account restrictions.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Active Cases</CardTitle>
-          <CardDescription>Select a case from the left panel to review the full investigation details.</CardDescription>
+          <CardTitle>Reported accounts</CardTitle>
+          <CardDescription>Select an account to review its actual reports. Closed reports remain available by clearing Open reports only.</CardDescription>
         </CardHeader>
         <CardContent>
           <InvestigationPanel />

@@ -5,9 +5,9 @@ export default function SponsoredEventsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Sponsored Events</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Partner Activities</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Review, approve, and manage events promoted by business partners and brands.
+          Review activities hosted by Partner accounts and open their existing management controls.
         </p>
       </div>
 
