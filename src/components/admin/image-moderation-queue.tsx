@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getImageModerationQueue, moderationPreviewUrl, reviewContentModeration } from "@/lib/api";
@@ -52,7 +53,7 @@ export function ImageModerationQueueGrid() {
           return <div className="rounded-lg border bg-background p-3" key={`${item.field}-${index}`}>
             <div className="mb-2 flex items-center justify-between"><span className="text-sm font-medium">{item.field.replaceAll("_", " ")}</span><Badge variant="outline">{item.kind}</Badge></div>
             {item.kind === "text" ? <p className="whitespace-pre-wrap break-words text-sm">{item.preview || "No text preview"}</p>
-              : previews[key] ? <img src={previews[key]} alt={`Private ${item.field} moderation preview`} className="max-h-72 w-full rounded-md bg-muted object-contain" />
+              : previews[key] ? <Image unoptimized width={720} height={480} src={previews[key]} alt={`Private ${item.field} moderation preview`} className="max-h-72 w-full rounded-md bg-muted object-contain" />
               : <p className="text-sm text-muted-foreground">Private preview unavailable or loading.</p>}
           </div>;
         })}
