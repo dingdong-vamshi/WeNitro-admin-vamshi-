@@ -414,7 +414,47 @@ export async function getReportedEvents(params?: { search?: string; severity?: s
   return { rows: paginate(rows, params?.page ?? 1, params?.pageSize ?? 6), total: rows.length };
 }
 export async function getChatViolations(params?: { search?: string; severity?: string; page?: number; pageSize?: number }): Promise<{ rows: A.ChatViolation[]; total: number }> { void params; return { rows: [], total: 0 }; }
-export async function getImageModerationQueue(params?: { status?: string }): Promise<A.ImageModerationItem[]> { void params; return []; }
+export type ContentModerationQueueItem = {
+  id: string;
+  scope: string;
+  status: "pending" | "review";
+  created_at: string;
+  resolved_at: string | null;
+  error_code: string | null;
+  categories: Record<string, unknown>;
+  user_id: number;
+  items: Array<{
+    field: string;
+    kind: "text" | "image";
+    preview: string;
+    storage_bucket: string | null;
+    storage_path: string | null;
+    status: string;
+    categories: Record<string, unknown>;
+  }>;
+};
+export async function getImageModerationQueue(params?: { status?: string }): Promise<ContentModerationQueueItem[]> {
+  configured();
+  const result = await supabase.rpc("admin_list_content_moderation");
+  check("Unable to load the automated moderation queue", result.error);
+  const rows = (result.data ?? []) as ContentModerationQueueItem[];
+  return params?.status && params.status !== "all" ? rows.filter((row) => row.status === params.status) : rows;
+}
+export async function reviewContentModeration(id: string, decision: "approve" | "reject", reason: string) {
+  configured();
+  const result = await supabase.rpc("admin_review_content_moderation", {
+    p_request_id: id, p_decision: decision, p_reason: reason,
+  });
+  check("Unable to save the moderation decision", result.error);
+  return result.data;
+}
+export async function moderationPreviewUrl(bucket: string, path: string) {
+  configured();
+  const result = await supabase.storage.from(bucket).createSignedUrl(path, 300);
+  check("Unable to load the private moderation preview", result.error);
+  if (!result.data?.signedUrl) throw new Error("Private moderation preview URL was unavailable.");
+  return result.data.signedUrl;
+}
 export async function getPendingReportItems(params?: { type?: string; page?: number; pageSize?: number }): Promise<{ rows: A.PendingReportItem[]; total: number }> {
   const [[userRows, eventRows], vibeRows] = await Promise.all([reports(), vibeReports()]);
   const type = params?.type ?? "all";

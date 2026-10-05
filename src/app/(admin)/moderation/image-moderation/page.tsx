@@ -7,14 +7,14 @@ export default function ImageModerationPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Image Moderation</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Review member reports about media and open the reported content.
+          Inspect text and image submissions that could not be published automatically.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Media-related member reports</CardTitle>
-          <CardDescription>Automated image classification is unavailable. Manual report decisions and existing content controls remain available.</CardDescription>
+          <CardTitle>OpenAI moderation review</CardTitle>
+          <CardDescription>Pending and review items remain private until a safe or administrator-approved decision exists.</CardDescription>
         </CardHeader>
         <CardContent>
           <ImageModerationQueueGrid />
