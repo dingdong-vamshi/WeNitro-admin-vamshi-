@@ -50,7 +50,7 @@ export type HubbleStagingCredit = {
   id: number;
   category: "HUBBLE_STAGING_TEST_CREDIT";
   originalBalance: number;
-  targetBalance: 200 | 500;
+  targetBalance: 200 | 250 | 500;
   grantedAmount: number;
   remainingAmount: number;
   reason: string;
@@ -72,7 +72,7 @@ export type HubbleStagingCreditResult = {
   creditId: number | null;
   userId: number;
   originalBalance: number;
-  targetBalance: 200 | 500;
+  targetBalance: 200 | 250 | 500;
   granted: number;
   currentBalance: number;
   idempotent: boolean;

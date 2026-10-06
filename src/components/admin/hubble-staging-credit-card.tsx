@@ -19,7 +19,7 @@ export function HubbleStagingCreditCard({ userId, userName }: { userId: string; 
   const { role } = useAdminAuth();
   const canManage = role === "admin" || role === "super_admin";
   const queryClient = useQueryClient();
-  const [targetBalance, setTargetBalance] = useState<200 | 500>(200);
+  const [targetBalance, setTargetBalance] = useState<200 | 250 | 500>(200);
   const [reason, setReason] = useState("Approved Hubble staging client test");
   const [message, setMessage] = useState<string | null>(null);
   const requestKey = useRef(newKey());
@@ -99,8 +99,8 @@ export function HubbleStagingCreditCard({ userId, userName }: { userId: string; 
         <div className="space-y-2">
           <p className="text-sm font-semibold">Target staging balance</p>
           <div className="flex gap-2">
-            {[200, 500].map((value) => (
-              <Button key={value} type="button" size="sm" variant={targetBalance === value ? "default" : "outline"} onClick={() => setTargetBalance(value as 200 | 500)}>
+            {[200, 250, 500].map((value) => (
+              <Button key={value} type="button" size="sm" variant={targetBalance === value ? "default" : "outline"} onClick={() => setTargetBalance(value as 200 | 250 | 500)}>
                 {value} Nitro
               </Button>
             ))}

@@ -396,7 +396,7 @@ export async function getHubbleStagingCredits(userId: string): Promise<A.HubbleS
 
 export async function grantHubbleStagingCredit(input: {
   userId: string;
-  targetBalance: 200 | 500;
+  targetBalance: 200 | 250 | 500;
   reason: string;
   idempotencyKey: string;
 }): Promise<A.HubbleStagingCreditResult> {
