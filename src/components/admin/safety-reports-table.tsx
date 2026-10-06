@@ -251,7 +251,7 @@ export function SafetyReportsTable() {
           <CardContent className="space-y-4 text-sm">
             <div className="space-y-3">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Reported User</p>
+                <p className="text-xs text-muted-foreground mb-1">Reported {selectedReport.sourceType === "community" ? "Community" : selectedReport.sourceType === "event" ? "Activity" : "User"}</p>
                 <div className="flex items-center gap-2">
                   <Avatar className="h-7 w-7">
                     <AvatarFallback className="text-xs">{selectedReport.reportedUser.slice(0, 2).toUpperCase()}</AvatarFallback>
@@ -289,7 +289,7 @@ export function SafetyReportsTable() {
             <div className="border-t border-border pt-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Investigation Panel</p>
               <div className="grid grid-cols-1 gap-1.5">
-                <Link className="rounded border p-2" href={selectedReport.sourceType==="event"?`/events/${selectedReport.targetId}`:`/users/${selectedReport.targetId}`}>Open reported {selectedReport.sourceType==="event"?"Activity":"member"}</Link>
+                {selectedReport.sourceType === "community" ? <a className="rounded border p-2" href={`https://wenitro-app.vercel.app/#/communityDetail/${selectedReport.targetId}`} target="_blank" rel="noreferrer">Open reported Community</a> : <Link className="rounded border p-2" href={selectedReport.sourceType==="event"?`/events/${selectedReport.targetId}`:`/users/${selectedReport.targetId}`}>Open reported {selectedReport.sourceType==="event"?"Activity":"member"}</Link>}
                 {selectedReport.reportedUserId&&<Link className="rounded border p-2" href={`/users/${selectedReport.reportedUserId}`}>Member profile and participation</Link>}
                 <Button variant="outline" onClick={()=>{setSearch(selectedReport.reportedUser);setStatus("all");setPage(1);}}>Previous reports for this subject</Button>
               </div>

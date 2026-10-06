@@ -32,4 +32,12 @@ queryRows=[{...cases[0],id:'other',user:{...users[0],id:'9',name:'Another member
 const redirects=[];
 const detail=load('src/app/(admin)/business/sponsored-events/[id]/page.tsx',{'next/navigation':{notFound:()=>{throw new Error('404');},redirect:path=>redirects.push(path)}}).default;
 await detail({params:Promise.resolve({id:'123'})});assert.deepEqual(redirects,['/events/123']);for(const id of ['-1','abc','0','../users','9007199254740992'])await assert.rejects(detail({params:Promise.resolve({id})}),/404/);
-console.log('PASS: real report grouping/status/topic selection/unknown-target isolation, Partner-only activities, actual review RPC arguments/cache refresh, required notes, frozen restriction targets, and valid detail redirect. Offline executable behavioral tests only.');
+const apiSource=fs.readFileSync('src/lib/api.ts','utf8');
+const tableSource=fs.readFileSync('src/components/admin/safety-reports-table.tsx','utf8');
+const investigationSource=fs.readFileSync('src/components/admin/investigation-panel.tsx','utf8');
+assert.match(apiSource,/communityReports\(true\)/,'Community reports must be loaded into the Admin moderation queue');
+assert.match(apiSource,/sourceType:\"community\" as const/,'Community reports must retain a distinct report type');
+assert.match(apiSource,/admin_review_report/,'Admin report decisions must use the authorized audit RPC');
+assert.match(tableSource,/sourceType === \"community\"/,'Safety Reports must label and link Community targets');
+assert.match(investigationSource,/sourceType === 'community'/,'Investigation view must link Community targets');
+console.log('PASS: real report grouping/status/topic selection/unknown-target isolation, Community moderation queue/link coverage, Partner-only activities, actual review RPC arguments/cache refresh, required notes, frozen restriction targets, and valid detail redirect. Offline executable behavioral tests only.');

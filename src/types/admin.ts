@@ -159,7 +159,7 @@ export type GrowthPoint = {
 
 export type ReportItem = {
   id: string;
-  type: "user" | "event" | "chat" | "image";
+  type: "user" | "event" | "community" | "chat" | "image";
   target: string;
   priority: "low" | "medium" | "high";
   status: "pending" | "investigating" | "resolved";
@@ -1013,7 +1013,7 @@ export type SafetyReportType =
 
 export type SafetyReport = {
   id: string;
-  sourceType: "user" | "event";
+  sourceType: "user" | "event" | "community";
   sourceId: string;
   targetId: string;
   reportType: SafetyReportType;
