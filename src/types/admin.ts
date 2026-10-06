@@ -35,6 +35,7 @@ export type UserProfile = {
   eventsHosted: number;
   eventsJoined: number;
   followers: number | null;
+  nitroPoints: number;
   verificationType?: string;
   verifiedAt?: string;
   blockedReason?: string;
@@ -43,6 +44,38 @@ export type UserProfile = {
   suspendedUntil?: string;
   banReason?: string;
   bannedAt?: string;
+};
+
+export type HubbleStagingCredit = {
+  id: number;
+  category: "HUBBLE_STAGING_TEST_CREDIT";
+  originalBalance: number;
+  targetBalance: 200 | 500;
+  grantedAmount: number;
+  remainingAmount: number;
+  reason: string;
+  status: "active" | "partially_used" | "consumed" | "reversed";
+  grantedBy: string;
+  grantedAt: string;
+  reversedBy: string | null;
+  reversedAt: string | null;
+  reversalReason: string | null;
+};
+
+export type HubbleStagingCreditSummary = {
+  userId: number;
+  currentBalance: number;
+  credits: HubbleStagingCredit[];
+};
+
+export type HubbleStagingCreditResult = {
+  creditId: number | null;
+  userId: number;
+  originalBalance: number;
+  targetBalance: 200 | 500;
+  granted: number;
+  currentBalance: number;
+  idempotent: boolean;
 };
 
 export type AdminRole =

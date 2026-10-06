@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
 import { UserStatusBadge } from "@/components/admin/user-status-badge";
+import { HubbleStagingCreditCard } from "@/components/admin/hubble-staging-credit-card";
 import { AdminDataState } from "@/components/admin/admin-data-state";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -152,6 +153,8 @@ export default function UserProfilePage() {
         </Card>
 
         <div className="space-y-6">
+          <HubbleStagingCreditCard userId={profile.id} userName={profile.name} />
+
           {/* Account Status card */}
           <Card className="overflow-hidden">
             <CardHeader className="border-b border-border/60 bg-muted/20 pb-4">

@@ -382,7 +382,45 @@ export async function getUserProfile(id: string): Promise<A.UserProfile | null> 
   const numericId = Number(id); if (!Number.isInteger(numericId)) return null;
   const [userRows, eventRows, participantRows, verification] = await Promise.all([users(), events(), participants(), supabase.from("tbl_user_verification").select("verification_type,status,reviewed_at,submitted_at").eq("user_id", numericId).order("reviewed_at",{ascending:false,nullsFirst:false}).order("submitted_at",{ascending:false}).limit(1).maybeSingle()]);
   check("Unable to load user verification", verification.error); const user = userRows.find((row) => row.id === numericId); if (!user) return null; const counts = userCounts(eventRows, participantRows); const base = mapUser(user, counts.hosted, counts.joined);
-  return { ...base, phone: user.phonenumber ? `${user.countrycode ?? ""}${user.phonenumber}` : "Not provided", followers: null, verificationType: verification.data?.verification_type ?? undefined, verifiedAt: verification.data?.reviewed_at ?? verification.data?.submitted_at ?? undefined };
+  return { ...base, phone: user.phonenumber ? `${user.countrycode ?? ""}${user.phonenumber}` : "Not provided", followers: null, nitroPoints: user.points ?? 0, verificationType: verification.data?.verification_type ?? undefined, verifiedAt: verification.data?.reviewed_at ?? verification.data?.submitted_at ?? undefined };
+}
+
+export async function getHubbleStagingCredits(userId: string): Promise<A.HubbleStagingCreditSummary> {
+  const id = Number(userId);
+  if (!Number.isInteger(id)) throw new Error("Invalid WeNitro user ID.");
+  configured();
+  const result = await supabase.rpc("admin_list_hubble_staging_credits", { p_user_id: id });
+  check("Unable to load Hubble staging credits", result.error);
+  return result.data as A.HubbleStagingCreditSummary;
+}
+
+export async function grantHubbleStagingCredit(input: {
+  userId: string;
+  targetBalance: 200 | 500;
+  reason: string;
+  idempotencyKey: string;
+}): Promise<A.HubbleStagingCreditResult> {
+  const id = Number(input.userId);
+  if (!Number.isInteger(id)) throw new Error("Invalid WeNitro user ID.");
+  configured();
+  const result = await supabase.rpc("admin_grant_hubble_staging_credit", {
+    p_user_id: id,
+    p_target_balance: input.targetBalance,
+    p_reason: input.reason,
+    p_idempotency_key: input.idempotencyKey,
+  });
+  check("Unable to grant Hubble staging test credit", result.error);
+  return result.data as A.HubbleStagingCreditResult;
+}
+
+export async function reverseHubbleStagingCredit(input: { creditId: number; reason: string }) {
+  configured();
+  const result = await supabase.rpc("admin_reverse_hubble_staging_credit", {
+    p_credit_id: input.creditId,
+    p_reason: input.reason,
+  });
+  check("Unable to reverse unused Hubble staging test credit", result.error);
+  return result.data as { creditId: number; userId: number; reversed: number; currentBalance: number; idempotent: boolean };
 }
 export async function getUserActivity(userId: string): Promise<A.UserActivity[]> {
   const id = Number(userId); if (!Number.isInteger(id)) return []; configured();
