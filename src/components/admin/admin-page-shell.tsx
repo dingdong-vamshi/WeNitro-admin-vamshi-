@@ -25,14 +25,15 @@ export function AdminPageShell({ children }: { children: React.ReactNode }) {
   const showBreadcrumbs = pathname !== "/dashboard";
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="flex min-h-screen">
+    <div className="min-h-screen bg-background text-foreground lg:h-screen lg:overflow-hidden">
+      <div className="flex min-h-screen lg:h-screen lg:min-h-0">
         <AdminSidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col lg:h-screen lg:overflow-hidden">
           <AdminHeader />
-          <main className="mx-auto w-full max-w-[1720px] flex-1 space-y-4 px-4 py-5 lg:px-6 lg:py-6">
-            {showBreadcrumbs ? <AdminBreadcrumbs segments={segments} /> : null}
-            {allowed ? children : (
+          <main className="min-h-0 flex-1 overflow-y-visible lg:overflow-y-auto">
+            <div className="mx-auto w-full max-w-[1720px] space-y-4 px-4 py-5 lg:px-6 lg:py-6">
+              {showBreadcrumbs ? <AdminBreadcrumbs segments={segments} /> : null}
+              {allowed ? children : (
               <Card className="mx-auto mt-12 w-full max-w-xl border-dashed">
                 <CardHeader>
                   <CardTitle>Access restricted</CardTitle>
@@ -44,7 +45,8 @@ export function AdminPageShell({ children }: { children: React.ReactNode }) {
                   <Button asChild><Link href={defaultAdminPath(role)}>Open your workspace</Link></Button>
                 </CardContent>
               </Card>
-            )}
+              )}
+            </div>
           </main>
         </div>
       </div>

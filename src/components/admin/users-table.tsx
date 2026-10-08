@@ -25,12 +25,12 @@ import { TremorAreaChart } from "@/components/charts/tremor-charts";
 
 const topTabs: Array<{ label: string; value: UserStatus | "all" }> = [
   { label: "All Users", value: "all" },
-  { label: "Verified Users", value: "verified" },
-  { label: "Blocked Users", value: "blocked" },
+  { label: "Fully Verified", value: "verified" },
   { label: "Suspended Users", value: "suspended" },
+  { label: "Banned Users", value: "banned" },
 ];
 
-const statuses: Array<UserStatus | "all"> = ["all", "active", "verified", "blocked", "suspended", "banned"];
+const statuses: Array<UserStatus | "all"> = ["all", "active", "verified", "suspended", "banned"];
 
 const statusVariant: Record<UserStatus, "success" | "info" | "caution" | "warning" | "danger"> = {
   active: "success",
@@ -42,7 +42,7 @@ const statusVariant: Record<UserStatus, "success" | "info" | "caution" | "warnin
 
 const statusLabel: Record<UserStatus, string> = {
   active: "Active",
-  verified: "Verified",
+  verified: "Fully verified",
   blocked: "Blocked",
   suspended: "Suspended",
   banned: "Banned",
@@ -67,6 +67,7 @@ function formatJoinedDate(value: string) {
 export function UsersTable({ initialStatus = "all" }: { initialStatus?: UserStatus | "all" }) {
   const [search, setSearch] = useState("");
   const [accountType, setAccountType] = useState<AccountType | "all">("all");
+  const [testAccounts, setTestAccounts] = useState<"all" | "real" | "test">("all");
   const [status, setStatus] = useState<UserStatus | "all">(initialStatus);
   const [location, setLocation] = useState("all");
   const [signupDate, setSignupDate] = useState<"all" | "last30" | "last90" | "last180" | "thisYear">("all");
@@ -78,8 +79,8 @@ export function UsersTable({ initialStatus = "all" }: { initialStatus?: UserStat
   const debouncedSearch = useDebounce(search);
   const router = useRouter();
   const query = useQuery({
-    queryKey: ["users", debouncedSearch, accountType, status, location, signupDate, participation, page, pageSize],
-    queryFn: () => getUsers({ accountType, search: debouncedSearch, status, location, signupDate, participation, page, pageSize }),
+    queryKey: ["users", debouncedSearch, accountType, testAccounts, status, location, signupDate, participation, page, pageSize],
+    queryFn: () => getUsers({ accountType, testAccounts, search: debouncedSearch, status, location, signupDate, participation, page, pageSize }),
   });
   const locationOptions = useMemo(
     () => ["all", ...Array.from(new Set((query.data?.rows ?? []).map((user) => user.location))).sort((a, b) => a.localeCompare(b))],
@@ -113,6 +114,10 @@ export function UsersTable({ initialStatus = "all" }: { initialStatus?: UserStat
 
   return (
     <div className="space-y-4">
+      <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
+        <p className="font-semibold">QA/Test accounts are identified from protected Auth fixture metadata and explicit QA naming.</p>
+        <p className="mt-1 text-xs text-blue-800">They remain visible and are included in the current production Admin counts and analytics. Use the account filter below to isolate real or test accounts.</p>
+      </div>
       <div className="flex w-fit max-w-full gap-0.5 overflow-x-auto rounded-md bg-[#f1f1ef] p-0.5">
         {topTabs.map((tab) => (
           <button
@@ -171,6 +176,19 @@ export function UsersTable({ initialStatus = "all" }: { initialStatus?: UserStat
               <option value="all">All users</option>
               <option value="individual">Individual · Partner not active</option>
               <option value="partner">Partner capability active</option>
+            </select>
+            <select
+              aria-label="Test account filter"
+              value={testAccounts}
+              onChange={(event) => {
+                setTestAccounts(event.target.value as "all" | "real" | "test");
+                setPage(1);
+              }}
+              className={selectBaseClass}
+            >
+              <option value="all">All account types</option>
+              <option value="real">Real accounts only</option>
+              <option value="test">QA/Test accounts only</option>
             </select>
             <div className="relative">
               <SlidersHorizontal className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -299,7 +317,10 @@ export function UsersTable({ initialStatus = "all" }: { initialStatus?: UserStat
                           <AvatarFallback>{userInitials(user.name)}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="font-bold leading-tight">{user.name}</p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-bold leading-tight">{user.name}</p>
+                            {user.isTestAccount ? <Badge variant="secondary">QA/Test</Badge> : null}
+                          </div>
                           <p className="text-xs text-muted-foreground">{user.username}</p>
                         </div>
                       </div>

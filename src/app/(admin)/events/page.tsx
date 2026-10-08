@@ -20,6 +20,19 @@ export default function EventsPage() {
           <span className="h-1.5 w-1.5 rounded-full bg-current" /> Live monitoring
         </Badge>
       </div>
+      <div className="rounded-lg border bg-card p-4">
+        <p className="text-sm font-semibold">Activity lifecycle shown by Admin</p>
+        <div className="mt-3 grid gap-3 text-xs text-muted-foreground sm:grid-cols-2 xl:grid-cols-4">
+          <p><strong className="text-foreground">Draft:</strong> stored as draft.</p>
+          <p><strong className="text-foreground">Upcoming:</strong> published and starts in the future.</p>
+          <p><strong className="text-foreground">Ongoing:</strong> start passed; end has not.</p>
+          <p><strong className="text-foreground">Completed:</strong> stored completed or end time passed.</p>
+          <p><strong className="text-foreground">Cancelled:</strong> explicitly cancelled by a host/co-host or Admin.</p>
+          <p><strong className="text-foreground">Removed:</strong> the stored deleted flag is true.</p>
+          <p><strong className="text-foreground">Reported:</strong> the stored status is reported.</p>
+          <p><strong className="text-foreground">Never started:</strong> does not by itself mean cancelled.</p>
+        </div>
+      </div>
       <EventsTable />
     </div>
   );

@@ -27,7 +27,7 @@ export default function UserGrowthPage() {
     { label: "Total Users",           value: data.stats.totalUsers.toLocaleString(),          Icon: Users,       color: "text-chart-1" },
     { label: "New Users (This Month)", value: data.stats.newUsersThisMonth.toLocaleString(),   Icon: UserPlus,    color: "text-chart-2" },
     { label: "Enabled Accounts",           value: data.stats.activeUsers.toLocaleString(),         Icon: Activity,    color: "text-chart-3" },
-    { label: "Verified Users",         value: data.stats.verifiedUsers.toLocaleString(),       Icon: ShieldCheck, color: "text-chart-4" },
+    { label: "Fully Verified Users",   value: data.stats.verifiedUsers.toLocaleString(),       Icon: ShieldCheck, color: "text-chart-4" },
   ];
 
   const csvRows = data.growth.map((g) => ({

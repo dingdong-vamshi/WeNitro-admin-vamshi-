@@ -97,13 +97,24 @@ export type User = {
   location: string;
   eventsHosted: number;
   eventsJoined: number;
+  isTestAccount: boolean;
+  verification: {
+    email: boolean;
+    phone: boolean;
+    selfie: boolean;
+    aadhaar: boolean;
+    fullyVerified: boolean;
+    legacyFlag: boolean;
+  };
 };
 
 export type EventStatus =
+  | "draft"
   | "upcoming"
   | "ongoing"
   | "completed"
   | "cancelled"
+  | "removed"
   | "reported";
 
 export type EventCategory =
@@ -139,7 +150,7 @@ export type Event = {
   category: EventCategory;
   startTime?: string;
   location?: string;
-  cancelledBy?: "host" | "admin";
+  cancelledBy?: "host" | "admin" | "unknown";
   cancelReason?: string;
 };
 
@@ -151,6 +162,7 @@ export type EventDetail = {
   city: string;
   location: string;
   date: string;
+  startAt: string | null;
   startTime: string;
   attendees: number;
   maxAttendees: number;
@@ -159,9 +171,20 @@ export type EventDetail = {
   category: EventCategory;
   description: string;
   isFeatured: boolean;
-  cancelledBy?: "host" | "admin";
+  cancelledBy?: "host" | "admin" | "unknown";
+  cancelledByLabel?: string;
   cancelReason?: string;
+  cancellationRecordedAt?: string;
   createdAt: string;
+  updatedAt: string;
+  endTime: string | null;
+  rawStatus: string;
+  isCancelled: boolean;
+  isRemoved: boolean;
+  statusBasis: string;
+  lifecycleActor?: string;
+  lifecycleReason?: string;
+  lifecycleRecordedAt?: string;
   mediaCount: { photos: number; videos: number };
 };
 

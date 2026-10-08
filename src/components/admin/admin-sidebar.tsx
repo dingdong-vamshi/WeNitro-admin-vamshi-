@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { ChevronDown, CircleCheck, X } from "lucide-react";
 
 import { navSectionsForRole } from "@/components/admin/nav-config";
@@ -14,11 +15,33 @@ import { useUiStore } from "@/store/ui-store";
 
 export function AdminSidebar() {
   const { role } = useAdminAuth();
-  const navSections = navSectionsForRole(role);
+  const navSections = useMemo(() => navSectionsForRole(role), [role]);
   const pathname = usePathname();
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
   const mobileOpen = useUiStore((state) => state.mobileSidebarOpen);
   const setMobileOpen = useUiStore((state) => state.setMobileSidebarOpen);
+  const setScrollTop = useUiStore((state) => state.setSidebarScrollTop);
+  const expandedSections = useUiStore((state) => state.sidebarExpandedSections);
+  const setSectionExpanded = useUiStore((state) => state.setSidebarSectionExpanded);
+  const navRef = useRef<HTMLElement>(null);
+
+  useLayoutEffect(() => {
+    const activeSection = navSections.find((section) => pathname.startsWith(section.href));
+    if (activeSection?.children?.length && expandedSections[activeSection.title] === undefined) {
+      setSectionExpanded(activeSection.title, true);
+    }
+    const nav = navRef.current;
+    if (!nav) return;
+    nav.scrollTop = useUiStore.getState().sidebarScrollTop;
+    const frame = requestAnimationFrame(() => {
+      const selected = nav.querySelector<HTMLElement>("[data-sidebar-active='true']");
+      if (!selected) return;
+      const navBox = nav.getBoundingClientRect();
+      const itemBox = selected.getBoundingClientRect();
+      if (itemBox.top < navBox.top || itemBox.bottom > navBox.bottom) selected.scrollIntoView({ block: "nearest" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [pathname, navSections, expandedSections, setSectionExpanded]);
 
   return (
     <>
@@ -34,7 +57,7 @@ export function AdminSidebar() {
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[260px] -translate-x-full flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] text-foreground transition-[transform,width] duration-200 lg:sticky lg:top-0 lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 flex h-dvh w-[260px] -translate-x-full flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] text-foreground transition-[transform,width] duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 lg:self-start",
           mobileOpen && "translate-x-0",
           collapsed ? "lg:w-[72px]" : "lg:w-[260px]",
         )}
@@ -62,7 +85,7 @@ export function AdminSidebar() {
         </div>
 
         <TooltipProvider>
-          <nav className="min-h-0 flex-1 overflow-y-auto px-2.5 py-3">
+          <nav ref={navRef} onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)} className="min-h-0 flex-1 overscroll-contain overflow-y-auto px-2.5 py-3">
             {!collapsed ? (
               <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#9b9a97]">Workspace</p>
             ) : null}
@@ -83,7 +106,7 @@ export function AdminSidebar() {
                   return (
                     <Tooltip key={section.title}>
                       <TooltipTrigger asChild>
-                        <Link href={sectionHref} className={itemClass} onClick={() => setMobileOpen(false)}>
+                        <Link href={sectionHref} className={itemClass} data-sidebar-active={active} onClick={() => setMobileOpen(false)}>
                           <span className={cn(
                             "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[#dededb] bg-white text-[#202020] shadow-[0_2px_3px_rgb(24_24_27/0.10),inset_0_1px_0_white] transition-all group-hover:-translate-y-px group-hover:shadow-[0_3px_5px_rgb(24_24_27/0.14)]",
                             active && "border-black bg-[#202020] text-white shadow-[0_3px_0_#000,0_5px_8px_rgb(24_24_27/0.16)]",
@@ -99,10 +122,10 @@ export function AdminSidebar() {
                 }
 
                 return (
-                  <Collapsible key={section.title} defaultOpen={active}>
+                  <Collapsible key={section.title} open={expandedSections[section.title] ?? active} onOpenChange={(open) => setSectionExpanded(section.title, open)}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <CollapsibleTrigger className={itemClass}>
+                        <CollapsibleTrigger className={itemClass} data-sidebar-active={active}>
                           <span className={cn(
                             "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[#dededb] bg-white text-[#202020] shadow-[0_2px_3px_rgb(24_24_27/0.10),inset_0_1px_0_white] transition-all group-hover:-translate-y-px group-hover:shadow-[0_3px_5px_rgb(24_24_27/0.14)]",
                             active && "border-black bg-[#202020] text-white shadow-[0_3px_0_#000,0_5px_8px_rgb(24_24_27/0.16)]",
@@ -125,6 +148,7 @@ export function AdminSidebar() {
                               <Link
                                 key={item.href}
                                 href={item.href}
+                                data-sidebar-active={childActive}
                                 className={cn(
                                   "block rounded-md px-2.5 py-1.5 text-[12px] font-medium text-[#787774] transition-colors hover:bg-[#efefed] hover:text-[#202020]",
                                   childActive && "bg-white text-[#202020] shadow-[inset_2px_0_0_#2563eb]",

@@ -4,6 +4,8 @@ import {listWorkspace} from "@/lib/admin-workspace";
 
 type UserRow = {
   banned_until?: string | null; is_admin_restricted?: boolean;
+  email_verified?: boolean; phone_verified?: boolean; selfie_verified?: boolean;
+  aadhaar_verified?: boolean; is_fully_verified?: boolean; is_test_account?: boolean;
   account_type: A.AccountType;
   id: number; fullname: string; username: string; email: string;
   profile_image: string | null; nationality: string | null; countrycode: string | null;
@@ -12,7 +14,7 @@ type UserRow = {
 };
 type EventRow = {
   is_admin_pinned: boolean;
-  id: number; title: string; description: string | null; created_by: number;
+  id: number; title: string; description: string | null; created_by: number; updated_by: number | null;
   created_at: string | null; updated_at: string | null; event_start_time: string | null;
   event_end_time: string | null; display_location: string | null; location: string | null;
   max_participants: number | null; status: string; intent: string | null;
@@ -41,7 +43,7 @@ type ActivityPaymentRow = {
   paid_at: string | null;
 };
 
-const EVENT_COLUMNS = "id,title,description,created_by,created_at,updated_at,event_start_time,event_end_time,display_location,location,max_participants,status,intent,is_cancelled,is_deleted,media,is_admin_pinned";
+const EVENT_COLUMNS = "id,title,description,created_by,updated_by,created_at,updated_at,event_start_time,event_end_time,display_location,location,max_participants,status,intent,is_cancelled,is_deleted,media,is_admin_pinned";
 const PAYMENT_COLUMNS = "id,event_id,user_id,provider_order_id,provider_payment_id,payment_session_id,amount_paisa,currency,status,provider_status,idempotency_key,provider_metadata,created_at,updated_at,paid_at";
 
 function configured() {
@@ -59,7 +61,7 @@ function userStatus(user: UserRow): A.UserStatus {
   if (user.is_admin_restricted) return user.banned_until && new Date(user.banned_until).getFullYear() > new Date().getFullYear()+10 ? "banned" : "suspended";
   if (user.is_delete === 1) return "banned";
   if (user.is_active === 0) return "suspended";
-  return user.isverified === 1 ? "verified" : "active";
+  return user.is_fully_verified ? "verified" : "active";
 }
 function categoryOf(value?: string | null): A.EventCategory {
   const text = (value ?? "").toLowerCase();
@@ -73,9 +75,12 @@ function categoryOf(value?: string | null): A.EventCategory {
   return "social";
 }
 function statusOf(event: EventRow): A.EventStatus {
-  if (event.is_cancelled || event.is_deleted || event.status.toLowerCase() === "cancelled") return "cancelled";
-  if (event.status.toLowerCase() === "reported") return "reported";
-  if (event.status.toLowerCase() === "completed") return "completed";
+  const stored = event.status.toLowerCase();
+  if (event.is_deleted) return "removed";
+  if (event.is_cancelled || stored === "cancelled") return "cancelled";
+  if (stored === "draft") return "draft";
+  if (stored === "reported") return "reported";
+  if (stored === "completed") return "completed";
   const now = Date.now();
   if (event.event_end_time && new Date(event.event_end_time).getTime() < now) return "completed";
   if (event.event_start_time && new Date(event.event_start_time).getTime() <= now) return "ongoing";
@@ -179,7 +184,7 @@ function userCounts(eventRows: EventRow[], participantRows: ParticipantRow[]) {
   return { hosted, joined };
 }
 function mapUser(row: UserRow, hosted: Map<number, number>, joined: Map<number, number>): A.User {
-  return { accountType: row.account_type === "partner" ? "partner" : "individual", id: String(row.id), name: row.fullname || row.username, username: row.username, email: row.email, avatar: row.profile_image ?? "", status: userStatus(row), joinedAt: dateValue(row.create_at), lastActiveAt: "", location: locationOf(row), eventsHosted: hosted.get(row.id) ?? 0, eventsJoined: joined.get(row.id) ?? 0 };
+  return { accountType: row.account_type === "partner" ? "partner" : "individual", id: String(row.id), name: row.fullname || row.username, username: row.username, email: row.email, avatar: row.profile_image ?? "", status: userStatus(row), joinedAt: dateValue(row.create_at), lastActiveAt: "", location: locationOf(row), eventsHosted: hosted.get(row.id) ?? 0, eventsJoined: joined.get(row.id) ?? 0, isTestAccount: row.is_test_account === true, verification: { email: row.email_verified === true, phone: row.phone_verified === true, selfie: row.selfie_verified === true, aadhaar: row.aadhaar_verified === true, fullyVerified: row.is_fully_verified === true, legacyFlag: row.isverified === 1 } };
 }
 function mapEvent(row: EventRow, userMap: Map<number, UserRow>, counts: Map<number, number>, categoryMap: Map<number, string>): A.Event {
   const start = dateValue(row.event_start_time ?? row.created_at);
@@ -335,7 +340,7 @@ export async function getDashboardSnapshot(range: A.DashboardRange = "30d"): Pro
   };
 }
 
-export async function getUsers(params?: { accountType?: A.AccountType | "all"; search?: string; status?: A.UserStatus | "all"; location?: string; signupDate?: "all" | "last30" | "last90" | "last180" | "thisYear"; participation?: "all" | "high" | "medium" | "low"; page?: number; pageSize?: number }): Promise<{ rows: A.User[]; total: number }> {
+export async function getUsers(params?: { accountType?: A.AccountType | "all"; testAccounts?: "all" | "real" | "test"; search?: string; status?: A.UserStatus | "all"; location?: string; signupDate?: "all" | "last30" | "last90" | "last180" | "thisYear"; participation?: "all" | "high" | "medium" | "low"; page?: number; pageSize?: number }): Promise<{ rows: A.User[]; total: number }> {
   const [userRows, eventRows, participantRows] = await Promise.all([users(), events(), participants()]);
   const counts = userCounts(eventRows, participantRows); const search = params?.search?.toLowerCase().trim() ?? "";
   const limit = new Date();
@@ -343,7 +348,8 @@ export async function getUsers(params?: { accountType?: A.AccountType | "all"; s
   const rows = userRows.map((row) => mapUser(row, counts.hosted, counts.joined)).filter((row) => {
     const involvement = row.eventsHosted + row.eventsJoined;
     const participationMatch = !params?.participation || params.participation === "all" || (params.participation === "high" && involvement >= 30) || (params.participation === "medium" && involvement >= 12 && involvement < 30) || (params.participation === "low" && involvement < 12);
-    return (!search || [row.id, row.name, row.username, row.email].some((value) => value.toLowerCase().includes(search))) && (!params?.status || params.status === "all" || row.status === params.status) && (!params?.location || params.location === "all" || row.location === params.location) && (!params?.accountType || params.accountType === "all" || row.accountType === params.accountType) && new Date(row.joinedAt) >= limit && participationMatch;
+    const testMatch = !params?.testAccounts || params.testAccounts === "all" || (params.testAccounts === "test" ? row.isTestAccount : !row.isTestAccount);
+    return (!search || [row.id, row.name, row.username, row.email].some((value) => value.toLowerCase().includes(search))) && (!params?.status || params.status === "all" || row.status === params.status) && (!params?.location || params.location === "all" || row.location === params.location) && (!params?.accountType || params.accountType === "all" || row.accountType === params.accountType) && new Date(row.joinedAt) >= limit && participationMatch && testMatch;
   });
   return { rows: paginate(rows, params?.page ?? 1, params?.pageSize ?? 5), total: rows.length };
 }
@@ -428,14 +434,26 @@ export async function getUserActivity(userId: string): Promise<A.UserActivity[]>
   check("Unable to load hosted activity history", hosted.error); check("Unable to load participation history", joined.error); check("Unable to load message history", messages.error); check("Unable to load report history", receivedReports.error); check("Unable to load received rating history", receivedRatings.error);
   return [...(hosted.data ?? []).map((row) => ({ id: `event-${row.id}`, userId, type: "event_created" as const, description: `Created ${row.title}`, date: dateValue(row.created_at) })), ...(joined.data ?? []).map((row) => ({ id: `join-${row.id}`, userId, type: "event_joined" as const, description: `Joined activity ${row.event_id}`, date: row.created_at })), ...(messages.data ?? []).map((row) => ({ id: `message-${row.id}`, userId, type: "message_sent" as const, description: "Sent a chat message", date: dateValue(row.created_at) })), ...(receivedReports.data ?? []).map((row) => ({ id: `report-${row.id}`, userId, type: "report_received" as const, description: "Received a user report", date: row.created_at })), ...(receivedRatings.data ?? []).map((row) => ({ id: `rating-${row.id}`, userId, type: "rating_received" as const, description: "Received a participant rating", date: row.created_at }))].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 }
-export async function getVerifiedUsers(): Promise<A.UserProfile[]> { const rows = (await users()).filter((row) => row.isverified === 1); const profiles = await Promise.all(rows.map((row) => getUserProfile(String(row.id)))); return profiles.filter((row): row is A.UserProfile => row !== null); }
+export async function getVerifiedUsers(): Promise<A.UserProfile[]> { const rows = (await users()).filter((row) => row.is_fully_verified === true); const profiles = await Promise.all(rows.map((row) => getUserProfile(String(row.id)))); return profiles.filter((row): row is A.UserProfile => row !== null); }
 export async function getBlockedUsers(): Promise<A.UserProfile[]> { const rows=(await users()).filter(row=>row.is_admin_restricted); return (await Promise.all(rows.map(row=>getUserProfile(String(row.id))))).filter((row):row is A.UserProfile=>row!==null); }
 export async function getSuspendedUsers(): Promise<A.UserProfile[]> { const rows = (await users()).filter((row) => (row.is_active === 0 || row.is_admin_restricted) && row.is_delete !== 1); const profiles = await Promise.all(rows.map((row) => getUserProfile(String(row.id)))); return profiles.filter((row): row is A.UserProfile => row !== null); }
 export async function getEventDetail(id: string): Promise<A.EventDetail | null> {
-  const numericId = Number(id); if (!Number.isInteger(numericId)) return null; const [eventRows, userRows, participantRows, categoryMap] = await Promise.all([events(), users(), participants(), categories()]); const event = eventRows.find((row) => row.id === numericId); if (!event) return null;
-  const counts = new Map([[numericId, participantRows.filter((row) => row.event_id === numericId && isApprovedParticipant(row)).length]]); const mapped = mapEvent(event, new Map(userRows.map((row) => [row.id, row])), counts, categoryMap); let photos = 0; let videos = 0;
+  const numericId = Number(id); if (!Number.isInteger(numericId)) return null; const [eventRows, userRows, participantRows, categoryMap, audit] = await Promise.all([events(), users(), participants(), categories(), operationAudit()]); const event = eventRows.find((row) => row.id === numericId); if (!event) return null;
+  const userMap = new Map(userRows.map((row) => [row.id, row]));
+  const counts = new Map([[numericId, participantRows.filter((row) => row.event_id === numericId && isApprovedParticipant(row)).length]]); const mapped = mapEvent(event, userMap, counts, categoryMap); let photos = 0; let videos = 0;
   if (Array.isArray(event.media)) event.media.forEach((item) => { const type = typeof item === "object" && item !== null && "type" in item ? String(item.type) : ""; if (type.includes("video")) videos += 1; else photos += 1; });
-  return { ...mapped, hostId: String(event.created_by), description: event.description ?? "", isFeatured: event.is_admin_pinned === true, createdAt: dateValue(event.created_at), mediaCount: { photos, videos }, maxAttendees: event.max_participants ?? 0, location: event.display_location || event.location || "Not provided", startTime: mapped.startTime ?? "" };
+  const lifecycle = audit.find((entry) => entry.target_type === "activity" && entry.target_id === numericId && ["cancel_event", "delete_event", "restore_event"].includes(entry.action));
+  const adminCancellation = mapped.status === "cancelled" && lifecycle?.action === "cancel_event";
+  const updater = event.updated_by ? userMap.get(event.updated_by) : undefined;
+  const endedByClock = mapped.status === "completed" && event.status.toLowerCase() !== "completed";
+  const statusBasis = mapped.status === "removed" ? "The stored is_deleted flag is true."
+    : mapped.status === "cancelled" ? "The stored status or is_cancelled flag records an explicit cancellation."
+    : mapped.status === "completed" ? (endedByClock ? "The scheduled end time has passed; no participant or rating action is required." : "The stored activity status is completed.")
+    : mapped.status === "ongoing" ? "The start time has passed and the end time has not."
+    : mapped.status === "upcoming" ? "The activity is published and its start time is in the future."
+    : mapped.status === "draft" ? "The stored activity status is draft."
+    : "The stored activity status is reported.";
+  return { ...mapped, hostId: String(event.created_by), description: event.description ?? "", isFeatured: event.is_admin_pinned === true, createdAt: dateValue(event.created_at), updatedAt: dateValue(event.updated_at), startAt: event.event_start_time, endTime: event.event_end_time, rawStatus: event.status, isCancelled: event.is_cancelled === true || event.status.toLowerCase() === "cancelled", isRemoved: event.is_deleted === true, statusBasis, ...(mapped.status === "cancelled" ? { cancelledBy: adminCancellation ? "admin" as const : event.updated_by ? "host" as const : "unknown" as const, cancelledByLabel: adminCancellation ? lifecycle?.actor : updater?.fullname || updater?.username || (event.updated_by ? `User ${event.updated_by}` : undefined), cancelReason: adminCancellation ? lifecycle?.reason : undefined, cancellationRecordedAt: adminCancellation ? lifecycle?.created_at : dateValue(event.updated_at) } : {}), ...(lifecycle && lifecycle.action !== "restore_event" ? { lifecycleActor: lifecycle.actor, lifecycleReason: lifecycle.reason, lifecycleRecordedAt: lifecycle.created_at } : {}), mediaCount: { photos, videos }, maxAttendees: event.max_participants ?? 0, location: event.display_location || event.location || "Not provided", startTime: mapped.startTime ?? "" };
 }
 export async function getEventParticipants(eventId: string, params?: { search?: string; status?: A.EventParticipantStatus | "all"; page?: number; pageSize?: number }): Promise<{ rows: A.EventParticipant[]; total: number }> {
   const id = Number(eventId); if (!Number.isInteger(id)) return { rows: [], total: 0 }; const [participantRows, userRows] = await Promise.all([participants(), users()]); const userMap = new Map(userRows.map((row) => [row.id, row])); const search = params?.search?.toLowerCase().trim() ?? "";
@@ -582,7 +600,7 @@ type UsageMetrics = {since:string|null;timezone:string;dau:number;mau:number;ret
 async function usageMetrics(range:A.AnalyticsRange="30d"):Promise<UsageMetrics>{configured();const result=await supabase.rpc("admin_usage_metrics",{p_days:range==="7d"?7:range==="12m"?365:30});check("Unable to load observed usage",result.error);return result.data as UsageMetrics;}
 export async function getUserAnalytics(range: A.AnalyticsRange = "30d"): Promise<A.UserAnalyticsData> {
  const [rows,usage]=await Promise.all([users(),usageMetrics(range)]);const month=new Date();month.setUTCDate(1);month.setUTCHours(0,0,0,0);const byCity=new Map<string,number>();rows.forEach(row=>byCity.set(locationOf(row),(byCity.get(locationOf(row))??0)+1));const points=buckets(range);const totalPlatforms=usage.platforms.reduce((n,p)=>n+p.visits,0);
- return {stats:{totalUsers:rows.length,newUsersThisMonth:rows.filter(row=>new Date(dateValue(row.create_at))>=month).length,activeUsers:rows.filter(row=>row.is_active!==0&&row.is_delete!==1&&!row.is_admin_restricted).length,verifiedUsers:rows.filter(row=>row.isverified===1).length},growth:points.map(({label,end},i)=>({label,newUsers:rows.filter(row=>{const d=new Date(dateValue(row.create_at));return d>(i?points[i-1].end:cutoff(range))&&d<=end}).length,totalUsers:rows.filter(row=>new Date(dateValue(row.create_at))<=end).length})),byCity:Array.from(byCity).map(([city,users])=>({city,users})),deviceUsage:usage.platforms.map(p=>({name:p.platform,percentage:totalPlatforms?Math.round(p.visits*100/totalPlatforms):0})),dau:usage.dau,mau:usage.mau,retentionRate:usage.retention.month,observedSince:usage.since};
+ return {stats:{totalUsers:rows.length,newUsersThisMonth:rows.filter(row=>new Date(dateValue(row.create_at))>=month).length,activeUsers:rows.filter(row=>row.is_active!==0&&row.is_delete!==1&&!row.is_admin_restricted).length,verifiedUsers:rows.filter(row=>row.is_fully_verified===true).length},growth:points.map(({label,end},i)=>({label,newUsers:rows.filter(row=>{const d=new Date(dateValue(row.create_at));return d>(i?points[i-1].end:cutoff(range))&&d<=end}).length,totalUsers:rows.filter(row=>new Date(dateValue(row.create_at))<=end).length})),byCity:Array.from(byCity).map(([city,users])=>({city,users})),deviceUsage:usage.platforms.map(p=>({name:p.platform,percentage:totalPlatforms?Math.round(p.visits*100/totalPlatforms):0})),dau:usage.dau,mau:usage.mau,retentionRate:usage.retention.month,observedSince:usage.since};
 }
 export async function getEventAnalytics(range: A.AnalyticsRange = "30d"): Promise<A.EventAnalyticsData> {
   const [eventRows, participantRows, categoryMap] = await Promise.all([events(), participants(), categories()]); const start = cutoff(range); const eventPoints=buckets(range); const participantCounts = new Map<number, number>(); participantRows.filter(isApprovedParticipant).forEach((row) => participantCounts.set(row.event_id, (participantCounts.get(row.event_id) ?? 0) + 1)); const categoryCounts = new Map<string, number>(); const cityCounts = new Map<string, number>(); eventRows.forEach((row) => { const category = categoryMap.get(row.id) ?? row.intent ?? "Social"; categoryCounts.set(category, (categoryCounts.get(category) ?? 0) + 1); const city = row.display_location || row.location || "Not provided"; cityCounts.set(city, (cityCounts.get(city) ?? 0) + 1); });
@@ -677,7 +695,24 @@ export async function getAdminSecurityOverview(): Promise<A.AdminSecurityOvervie
 export async function getCommunities() { configured(); const [rooms, members] = await Promise.all([supabase.from("tbl_chat_rooms").select("id,title,tagline,description,visibility,created_at,created_by,image_url,cover_url").eq("room_type", "community").order("created_at", { ascending: false }), supabase.from("tbl_chat_participants").select("room_id")]); check("Unable to load communities", rooms.error); check("Unable to load community members", members.error); const counts = new Map<number, number>(); (members.data ?? []).forEach((row) => { if (row.room_id !== null) counts.set(Number(row.room_id), (counts.get(Number(row.room_id)) ?? 0) + 1); }); return (rooms.data ?? []).map((row) => ({ ...row, id: String(row.id), created_by: row.created_by === null ? null : String(row.created_by), memberCount: counts.get(Number(row.id)) ?? 0 })); }
 export async function getVibes() { configured(); const result = await supabase.from("tbl_activity_vibes").select("id,user_id,event_id,caption,media_type,media_url,likes_count,visibility,created_at").order("created_at", { ascending: false }); check("Unable to load vibes", result.error); return result.data ?? []; }
 export async function getStories() { configured(); const result = await supabase.from("tbl_stories").select("id,user_id,caption,media_type,media_url,created_at,expires_at,deleted_at").order("created_at", { ascending: false }); check("Unable to load stories", result.error); return result.data ?? []; }
-export async function getVerificationSubmissions() { configured(); const result = await supabase.from("tbl_user_verification").select("id,user_id,verification_type,status,document_path,document_mime,submitted_at,reviewed_at,review_notes,created_at,updated_at").order("created_at", { ascending: false }); check("Unable to load verification submissions", result.error); return result.data ?? []; }
+export type VerificationSubmission = {
+  id: number;
+  user_id: number;
+  verification_type: string;
+  status: string;
+  document_path: string | null;
+  document_mime: string | null;
+  has_live_photo: boolean;
+  live_photo_verified: boolean;
+  aadhaar_verified: boolean;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  review_notes: string;
+  created_at: string;
+  updated_at: string;
+  user: { id: number; username: string; fullname: string; email: string; profile_image: string | null };
+};
+export async function getVerificationSubmissions(): Promise<VerificationSubmission[]> { configured(); const result = await supabase.rpc("admin_list_verifications", { p_limit: 100 }); check("Unable to load verification submissions", result.error); return (result.data ?? []) as VerificationSubmission[]; }
 export async function getVerificationPreview(id: number) {
   configured();
   const record = await supabase.from("tbl_user_verification").select("document_path").eq("id", id).single();

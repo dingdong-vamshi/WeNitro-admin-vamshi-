@@ -29,7 +29,7 @@ export default function UserAnalyticsPage() {
     { label: "Total Users", value: data.stats.totalUsers.toLocaleString() },
     { label: "New Users (This Month)", value: data.stats.newUsersThisMonth.toLocaleString() },
     { label: "Enabled Accounts", value: data.stats.activeUsers.toLocaleString() },
-    { label: "Verified Users", value: data.stats.verifiedUsers.toLocaleString() },
+    { label: "Fully Verified Users", value: data.stats.verifiedUsers.toLocaleString() },
   ];
 
   const csvRows = data.growth.map((g) => ({

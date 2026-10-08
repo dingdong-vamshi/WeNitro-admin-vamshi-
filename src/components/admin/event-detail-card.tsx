@@ -22,12 +22,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 
 const statusVariant: Record<string, "secondary" | "success" | "warning" | "danger" | "outline"> = {
+  draft: "secondary",
   upcoming: "secondary",
   ongoing: "success",
   completed: "outline",
   cancelled: "warning",
+  removed: "danger",
   reported: "danger",
 };
+
+const timestamp = (value: string | null | undefined) => value ? new Date(value).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "Not recorded";
 
 const categoryLabel: Record<string, string> = {
   adventure: "Adventure",
@@ -147,11 +151,23 @@ export function EventDetailCard({ event }: { event: EventDetail }) {
                 {categoryMessage && <p role="status" className="text-xs">{categoryMessage}</p>}
               </div>
               <div className="space-y-0.5">
-                <p className="text-xs text-muted-foreground">Date &amp; Time</p>
+                <p className="text-xs text-muted-foreground">Created</p>
                 <div className="flex items-center gap-1.5">
                   <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                  <p>{event.date} · {event.startTime}</p>
+                  <p>{timestamp(event.createdAt)}</p>
                 </div>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs text-muted-foreground">Starts</p>
+                <p>{timestamp(event.startAt)}</p>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs text-muted-foreground">Ends</p>
+                <p>{timestamp(event.endTime)}</p>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs text-muted-foreground">Last updated</p>
+                <p>{timestamp(event.updatedAt)}</p>
               </div>
               <div className="space-y-0.5">
                 <p className="text-xs text-muted-foreground">Participants</p>
@@ -163,6 +179,14 @@ export function EventDetailCard({ event }: { event: EventDetail }) {
                     <span className="text-muted-foreground">{event.maxAttendees > 0 ? `${event.maxAttendees} capacity` : "No participant limit"}</span>
                   </p>
                 </div>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-xs text-muted-foreground">Stored status</p>
+                <p className="font-medium capitalize">{event.rawStatus}</p>
+              </div>
+              <div className="col-span-2 space-y-0.5 rounded-md border bg-muted/20 p-3">
+                <p className="text-xs text-muted-foreground">Why Admin shows “{event.status}”</p>
+                <p>{event.statusBasis}</p>
               </div>
               <div className="col-span-2 space-y-0.5">
                 <p className="text-xs text-muted-foreground">Location</p>
@@ -180,21 +204,30 @@ export function EventDetailCard({ event }: { event: EventDetail }) {
               <p className="text-sm leading-relaxed">{event.description}</p>
             </div>
 
-            {(event.cancelledBy || event.cancelReason) && (
+            {event.status === "cancelled" && (
               <>
                 <Separator />
                 <div className="rounded-lg border border-yellow-500/30 bg-yellow-50/30 p-3 text-sm dark:bg-yellow-900/10">
                   <p className="font-medium text-yellow-700 dark:text-yellow-400">Cancellation Details</p>
                   {event.cancelledBy && (
                     <p className="mt-1 text-muted-foreground">
-                      Cancelled by: <span className="capitalize font-medium text-foreground">{event.cancelledBy}</span>
+                      Cancelled by: <span className="capitalize font-medium text-foreground">{event.cancelledBy}{event.cancelledByLabel ? ` · ${event.cancelledByLabel}` : ""}</span>
                     </p>
                   )}
-                  {event.cancelReason && (
-                    <p className="mt-0.5 text-muted-foreground">
-                      Reason: <span className="text-foreground">{event.cancelReason}</span>
-                    </p>
-                  )}
+                  <p className="mt-0.5 text-muted-foreground">Recorded: <span className="text-foreground">{timestamp(event.cancellationRecordedAt)}</span></p>
+                  <p className="mt-0.5 text-muted-foreground">Reason: <span className="text-foreground">{event.cancelReason || "Not stored for host cancellations"}</span></p>
+                </div>
+              </>
+            )}
+            {(event.isRemoved || event.lifecycleActor) && (
+              <>
+                <Separator />
+                <div className="rounded-lg border border-border bg-muted/20 p-3 text-sm">
+                  <p className="font-medium">Lifecycle audit</p>
+                  <p className="mt-1 text-muted-foreground">Removed flag: <span className="font-medium text-foreground">{event.isRemoved ? "Yes" : "No"}</span></p>
+                  <p className="mt-0.5 text-muted-foreground">Recorded actor: <span className="text-foreground">{event.lifecycleActor || "Not recorded"}</span></p>
+                  <p className="mt-0.5 text-muted-foreground">Recorded time: <span className="text-foreground">{timestamp(event.lifecycleRecordedAt)}</span></p>
+                  <p className="mt-0.5 text-muted-foreground">Recorded reason: <span className="text-foreground">{event.lifecycleReason || "Not recorded"}</span></p>
                 </div>
               </>
             )}

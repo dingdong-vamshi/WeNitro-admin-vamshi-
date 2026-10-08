@@ -48,18 +48,22 @@ import { TremorAreaChart } from "@/components/charts/tremor-charts";
 // ── Lookups ────────────────────────────────────────────────────────────────
 
 const statusVariant: Record<EventStatus, "secondary" | "success" | "warning" | "danger" | "outline"> = {
+  draft: "secondary",
   upcoming: "secondary",
   ongoing: "success",
   completed: "outline",
   cancelled: "warning",
+  removed: "danger",
   reported: "danger",
 };
 
 const statusLabel: Record<EventStatus, string> = {
+  draft: "Draft",
   upcoming: "Upcoming",
   ongoing: "Ongoing",
   completed: "Completed",
   cancelled: "Cancelled",
+  removed: "Removed",
   reported: "Reported",
 };
 
@@ -101,7 +105,7 @@ const allCategories: EventCategory[] = [
 ];
 
 const allStatuses: Array<EventStatus | "all"> = [
-  "all", "upcoming", "ongoing", "completed", "cancelled", "reported",
+  "all", "draft", "upcoming", "ongoing", "completed", "cancelled", "removed", "reported",
 ];
 
 // ── Helpers ────────────────────────────────────────────────────────────────

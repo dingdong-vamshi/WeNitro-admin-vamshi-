@@ -6,7 +6,7 @@ export default function SuspendedUsersPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Suspended Users</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Temporarily restricted accounts under active safety or authenticity review.
+          Temporary 30/90-day Admin Auth restrictions and inactive/deactivated profiles. Only the timed Admin restrictions expire automatically.
         </p>
       </div>
 

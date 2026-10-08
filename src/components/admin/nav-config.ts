@@ -43,8 +43,8 @@ export const navSections: NavSection[] = [
     children: [
       { label: "All Users", href: "/users" },
       { label: "Member Interests", href: "/users/interests" },
-      { label: "Verified Users", href: "/users/verified" },
-      { label: "Blocked Users", href: "/users/blocked" },
+      { label: "Fully Verified Users", href: "/users/verified" },
+      { label: "Banned Users", href: "/users/blocked" },
       { label: "Suspended Users", href: "/users/suspended" },
     ],
   },
@@ -153,7 +153,7 @@ export const navSections: NavSection[] = [
     href: "/security",
     children: [
       { label: "Anonymous Post Audit", href: "/security" },
-      { label: "Blocked Users", href: "/security/blocked-users" },
+      { label: "Admin Restrictions", href: "/security/blocked-users" },
       { label: "Safety Reports", href: "/security/safety-reports" },
       { label: "Abuse Detection", href: "/security/abuse-detection" },
       { label: "IP Monitoring", href: "/security/ip-monitoring" },
@@ -221,8 +221,8 @@ export function navSectionsForRole(role: AdminRole): NavSection[] {
 export const routeTitleMap: Record<string, string> = {
   dashboard: "Dashboard",
   users: "User Management",
-  verified: "Verified Users",
-  blocked: "Blocked Users",
+  verified: "Fully Verified Users",
+  blocked: "Banned Users",
   suspended: "Suspended Users",
   activity: "Activity History",
   communities: "Communities",

@@ -5,16 +5,16 @@ export default function SecurityBlockedUsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Blocked Users</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Admin Restrictions</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Accounts blocked due to abuse, harassment, spam, or other platform violations.
+          Accounts with an active Admin Auth restriction. Member-to-member chat blocks are separate and do not prevent login.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Blocked Accounts</CardTitle>
-          <CardDescription>Review blocked users, their violations, and take further action.</CardDescription>
+          <CardTitle>Restricted Accounts</CardTitle>
+          <CardDescription>Review timed or indefinite Admin restrictions, recorded reasons, and take further action.</CardDescription>
         </CardHeader>
         <CardContent>
           <SecurityBlockedUsersTable />

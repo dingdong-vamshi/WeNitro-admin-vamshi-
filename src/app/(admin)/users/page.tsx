@@ -20,6 +20,14 @@ export default function UsersPage() {
           <span className="h-1.5 w-1.5 rounded-full bg-current" /> Live data
         </Badge>
       </div>
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        {[
+          ["Active", "Profile and Auth are allowed. Full verification is shown separately."],
+          ["Suspended", "A 30/90-day Admin Auth restriction, or an inactive/deactivated profile. Only timed Auth restrictions expire automatically."],
+          ["Banned", "An indefinite Admin Auth restriction or a deleted profile. Login/app access is unavailable; restoring an Admin ban does not undelete a profile."],
+          ["Blocked chat", "A member-to-member direct-message block. It hides the direct chat and stops new messages; it does not block either account from login."],
+        ].map(([title, description]) => <div key={title} className="rounded-lg border bg-card p-3"><p className="text-sm font-semibold">{title}</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p></div>)}
+      </div>
       <UsersTable />
     </div>
   );

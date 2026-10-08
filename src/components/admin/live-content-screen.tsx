@@ -68,6 +68,7 @@ function InterestsTable({ rows }: { rows: Awaited<ReturnType<typeof getUserInter
 
 function VerificationTable({ rows }: { rows: Awaited<ReturnType<typeof getVerificationSubmissions>> }) {
   const queryClient = useQueryClient();
+  const [reviewNotes, setReviewNotes] = useState<Record<number, string>>({});
   const [preview, setPreview] = useState<{ id: number; url: string } | null>(null);
   const [previewError, setPreviewError] = useState("");
   const [previewBusy, setPreviewBusy] = useState(false);
@@ -78,15 +79,28 @@ function VerificationTable({ rows }: { rows: Awaited<ReturnType<typeof getVerifi
     finally { setPreviewBusy(false); }
   };
   const review = useMutation({
-    mutationFn: ({ id, status }: { id: number; status: "approved" | "rejected" }) => reviewVerification(id, status),
+    mutationFn: ({ id, status, notes }: { id: number; status: "approved" | "rejected"; notes: string }) => reviewVerification(id, status, notes),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["live-admin", "verification"] }),
   });
   return (
-    <><p className="p-4 text-sm text-muted-foreground">Review the private image before approving. A selfie review does not verify Aadhaar or complete all identity stages.</p>
+    <><div className="grid gap-3 border-b p-4 md:grid-cols-2 xl:grid-cols-4">
+      {[
+        ["Email", "Automatic · Supabase Auth", "Admin sees the confirmation result and cannot override it."],
+        ["Phone", "Automatic · OTP provider", "Admin sees the confirmation result and cannot read or override the OTP."],
+        ["Selfie", "Admin review", "Admin privately previews the submitted live selfie, then approves or rejects with a note."],
+        ["Aadhaar", "External provider · Sandbox DigiLocker", "Admin sees only the final result and cannot access Aadhaar numbers, OTPs, documents, photos, or demographics."],
+      ].map(([title, mode, description]) => <div key={title} className="rounded-lg border bg-muted/20 p-3"><p className="font-semibold">{title}</p><p className="mt-1 text-xs font-medium text-primary">{mode}</p><p className="mt-2 text-xs leading-relaxed text-muted-foreground">{description}</p></div>)}
+    </div>
+    <p className="p-4 text-sm text-muted-foreground">Only live-selfie submissions have Admin approve/reject controls. A selfie approval adds its stage; it does not verify email, phone, or Aadhaar.</p>
     {(previewError || review.error) && <p role="alert" className="p-4 text-destructive">{previewError || (review.error instanceof Error ? review.error.message : "Review failed")}</p>}
     {preview && <div className="space-y-3 p-4"><p>Private submission #{preview.id} · preview link expires in 5 minutes</p><iframe title={`Private verification ${preview.id}`} src={preview.url} className="h-96 w-full rounded border" referrerPolicy="no-referrer" /><Button variant="outline" onClick={() => setPreview(null)}>Close private preview</Button></div>}
-    <Table><TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Member ID</TableHead><TableHead>Type</TableHead><TableHead>Status</TableHead><TableHead>Document</TableHead><TableHead>Submitted</TableHead><TableHead>Reviewed</TableHead><TableHead>Action</TableHead></TableRow></TableHeader>
-      <TableBody>{rows.map((row) => <TableRow key={row.id}><TableCell className="font-mono text-xs">{row.id}</TableCell><TableCell>{row.user_id}</TableCell><TableCell>{row.verification_type}</TableCell><TableCell><StatusBadge value={row.status} /></TableCell><TableCell className="max-w-40 truncate">{pathName(row.document_path)}{row.document_path && <Button size="sm" variant="outline" disabled={previewBusy} onClick={() => void openPreview(Number(row.id))}>View private submission</Button>}</TableCell><TableCell>{date(row.submitted_at || row.created_at)}</TableCell><TableCell>{date(row.reviewed_at)}</TableCell><TableCell>{["submitted", "under_review"].includes(row.status) ? <div className="flex gap-2"><Button size="sm" disabled={review.isPending} onClick={() => review.mutate({ id: Number(row.id), status: "approved" })}>Approve</Button><Button size="sm" variant="outline" disabled={review.isPending} onClick={() => review.mutate({ id: Number(row.id), status: "rejected" })}>Reject</Button></div> : "Complete"}</TableCell></TableRow>)}</TableBody>
+    <Table><TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Member</TableHead><TableHead>Check</TableHead><TableHead>Status</TableHead><TableHead>Private media</TableHead><TableHead>Submitted</TableHead><TableHead>Reviewed</TableHead><TableHead>Review note</TableHead><TableHead>Action</TableHead></TableRow></TableHeader>
+      <TableBody>{rows.map((row) => {
+        const pendingSelfie = row.has_live_photo && ["submitted", "under_review"].includes(row.status);
+        const note = reviewNotes[row.id] ?? "";
+        const check = row.has_live_photo ? "Live selfie · Admin review" : row.aadhaar_verified ? "Aadhaar · Provider verified" : row.verification_type;
+        return <TableRow key={row.id}><TableCell className="font-mono text-xs">{row.id}</TableCell><TableCell><p className="font-medium">{row.user?.fullname || row.user?.username || `User ${row.user_id}`}</p><p className="text-xs text-muted-foreground">User {row.user_id}</p></TableCell><TableCell>{check}</TableCell><TableCell><StatusBadge value={row.status} /></TableCell><TableCell>{row.has_live_photo ? <Button size="sm" variant="outline" disabled={previewBusy} onClick={() => void openPreview(Number(row.id))}>View private selfie</Button> : <span className="text-xs text-muted-foreground">No Admin-accessible media</span>}</TableCell><TableCell>{date(row.submitted_at || row.created_at)}</TableCell><TableCell>{date(row.reviewed_at)}</TableCell><TableCell className="max-w-56 text-xs">{pendingSelfie ? <textarea aria-label={`Review note for ${row.user_id}`} className="min-h-20 w-56 rounded border bg-background p-2" placeholder="Required for rejection; saved to the review audit" value={note} onChange={(event) => setReviewNotes(current => ({ ...current, [row.id]: event.target.value }))} /> : row.review_notes || "Not recorded"}</TableCell><TableCell>{pendingSelfie ? <div className="flex flex-col gap-2"><Button size="sm" disabled={review.isPending} onClick={() => review.mutate({ id: Number(row.id), status: "approved", notes: note.trim() || "Live selfie approved after private Admin review." })}>Approve selfie</Button><Button size="sm" variant="outline" disabled={review.isPending || note.trim().length < 5} onClick={() => review.mutate({ id: Number(row.id), status: "rejected", notes: note.trim() })}>Reject with reason</Button></div> : row.has_live_photo ? "Review complete" : "Provider result · read-only"}</TableCell></TableRow>;
+      })}</TableBody>
     </Table></>
   );
 }
