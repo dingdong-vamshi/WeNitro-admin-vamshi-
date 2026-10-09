@@ -19,6 +19,8 @@ type EventRow = {
   event_end_time: string | null; display_location: string | null; location: string | null;
   max_participants: number | null; status: string; intent: string | null;
   is_cancelled: boolean | null; is_deleted: boolean | null; media: unknown;
+  admin_moderation_status: "active" | "hidden" | "removed";
+  admin_moderation_reason: string | null; admin_moderated_at: string | null;
 };
 type ParticipantRow = { id: number; event_id: number; user_id: number; status: string; joined_at: string | null; created_at: string };
 type UserReportRow = { status:string; id: number; target_user_id: number; reporter_id: number; reason: string; description: string | null; created_at: string };
@@ -44,7 +46,7 @@ type ActivityPaymentRow = {
   paid_at: string | null;
 };
 
-const EVENT_COLUMNS = "id,title,description,created_by,updated_by,created_at,updated_at,event_start_time,event_end_time,display_location,location,max_participants,status,intent,is_cancelled,is_deleted,media,is_admin_pinned";
+const EVENT_COLUMNS = "id,title,description,created_by,updated_by,created_at,updated_at,event_start_time,event_end_time,display_location,location,max_participants,status,intent,is_cancelled,is_deleted,media,is_admin_pinned,admin_moderation_status,admin_moderation_reason,admin_moderated_at";
 const PAYMENT_COLUMNS = "id,event_id,user_id,provider_order_id,provider_payment_id,payment_session_id,amount_paisa,currency,status,provider_status,idempotency_key,provider_metadata,created_at,updated_at,paid_at";
 
 function configured() {
@@ -78,7 +80,8 @@ function categoryOf(value?: string | null): A.EventCategory {
 }
 function statusOf(event: EventRow): A.EventStatus {
   const stored = event.status.toLowerCase();
-  if (event.is_deleted) return "removed";
+  if (event.is_deleted || event.admin_moderation_status === "removed") return "removed";
+  if (event.admin_moderation_status === "hidden") return "hidden";
   if (event.is_cancelled || stored === "cancelled") return "cancelled";
   if (stored === "draft") return "draft";
   if (stored === "reported") return "reported";
@@ -444,18 +447,19 @@ export async function getEventDetail(id: string): Promise<A.EventDetail | null> 
   const userMap = new Map(userRows.map((row) => [row.id, row]));
   const counts = new Map([[numericId, participantRows.filter((row) => row.event_id === numericId && isApprovedParticipant(row)).length]]); const mapped = mapEvent(event, userMap, counts, categoryMap); let photos = 0; let videos = 0;
   if (Array.isArray(event.media)) event.media.forEach((item) => { const type = typeof item === "object" && item !== null && "type" in item ? String(item.type) : ""; if (type.includes("video")) videos += 1; else photos += 1; });
-  const lifecycle = audit.find((entry) => entry.target_type === "activity" && entry.target_id === numericId && ["cancel_event", "delete_event", "restore_event"].includes(entry.action));
+  const lifecycle = audit.find((entry) => entry.target_type === "activity" && entry.target_id === numericId && ["hide_event", "unhide_event", "cancel_event", "delete_event", "restore_event"].includes(entry.action));
   const adminCancellation = mapped.status === "cancelled" && lifecycle?.action === "cancel_event";
   const updater = event.updated_by ? userMap.get(event.updated_by) : undefined;
   const endedByClock = mapped.status === "completed" && event.status.toLowerCase() !== "completed";
-  const statusBasis = mapped.status === "removed" ? "The stored is_deleted flag is true."
+  const statusBasis = mapped.status === "removed" ? "The activity is removed by its stored deletion or Admin moderation state."
+    : mapped.status === "hidden" ? "Admin hid the activity from normal user-facing discovery and direct access."
     : mapped.status === "cancelled" ? "The stored status or is_cancelled flag records an explicit cancellation."
     : mapped.status === "completed" ? (endedByClock ? "The scheduled end time has passed; no participant or rating action is required." : "The stored activity status is completed.")
     : mapped.status === "ongoing" ? "The start time has passed and the end time has not."
     : mapped.status === "upcoming" ? "The activity is published and its start time is in the future."
     : mapped.status === "draft" ? "The stored activity status is draft."
     : "The stored activity status is reported.";
-  return { ...mapped, hostId: String(event.created_by), description: event.description ?? "", isFeatured: event.is_admin_pinned === true, createdAt: dateValue(event.created_at), updatedAt: dateValue(event.updated_at), startAt: event.event_start_time, endTime: event.event_end_time, rawStatus: event.status, isCancelled: event.is_cancelled === true || event.status.toLowerCase() === "cancelled", isRemoved: event.is_deleted === true, statusBasis, ...(mapped.status === "cancelled" ? { cancelledBy: adminCancellation ? "admin" as const : event.updated_by ? "host" as const : "unknown" as const, cancelledByLabel: adminCancellation ? lifecycle?.actor : updater?.fullname || updater?.username || (event.updated_by ? `User ${event.updated_by}` : undefined), cancelReason: adminCancellation ? lifecycle?.reason : undefined, cancellationRecordedAt: adminCancellation ? lifecycle?.created_at : dateValue(event.updated_at) } : {}), ...(lifecycle && lifecycle.action !== "restore_event" ? { lifecycleActor: lifecycle.actor, lifecycleReason: lifecycle.reason, lifecycleRecordedAt: lifecycle.created_at } : {}), mediaCount: { photos, videos }, maxAttendees: event.max_participants ?? 0, location: event.display_location || event.location || "Not provided", startTime: mapped.startTime ?? "" };
+  return { ...mapped, hostId: String(event.created_by), description: event.description ?? "", isFeatured: event.is_admin_pinned === true, createdAt: dateValue(event.created_at), updatedAt: dateValue(event.updated_at), startAt: event.event_start_time, endTime: event.event_end_time, rawStatus: event.status, isCancelled: event.is_cancelled === true || event.status.toLowerCase() === "cancelled", isRemoved: event.is_deleted === true || event.admin_moderation_status === "removed", moderationStatus: event.admin_moderation_status, moderationReason: event.admin_moderation_reason ?? undefined, moderatedAt: event.admin_moderated_at ?? undefined, statusBasis, ...(mapped.status === "cancelled" ? { cancelledBy: adminCancellation ? "admin" as const : event.updated_by ? "host" as const : "unknown" as const, cancelledByLabel: adminCancellation ? lifecycle?.actor : updater?.fullname || updater?.username || (event.updated_by ? `User ${event.updated_by}` : undefined), cancelReason: adminCancellation ? lifecycle?.reason : undefined, cancellationRecordedAt: adminCancellation ? lifecycle?.created_at : dateValue(event.updated_at) } : {}), ...(lifecycle && lifecycle.action !== "restore_event" && lifecycle.action !== "unhide_event" ? { lifecycleActor: lifecycle.actor, lifecycleReason: lifecycle.reason, lifecycleRecordedAt: lifecycle.created_at } : {}), mediaCount: { photos, videos }, maxAttendees: event.max_participants ?? 0, location: event.display_location || event.location || "Not provided", startTime: mapped.startTime ?? "" };
 }
 export async function getEventParticipants(eventId: string, params?: { search?: string; status?: A.EventParticipantStatus | "all"; page?: number; pageSize?: number }): Promise<{ rows: A.EventParticipant[]; total: number }> {
   const id = Number(eventId); if (!Number.isInteger(id)) return { rows: [], total: 0 }; const [participantRows, userRows] = await Promise.all([participants(), users()]); const userMap = new Map(userRows.map((row) => [row.id, row])); const search = params?.search?.toLowerCase().trim() ?? "";
@@ -697,9 +701,11 @@ export async function getAdminSecurityOverview(): Promise<A.AdminSecurityOvervie
 
 // These entities have no dedicated admin screens yet, but exposing their live rows here
 // keeps future screens on the same canonical legacy schema rather than reintroducing fixtures.
-export async function getCommunities() { configured(); const [rooms, members] = await Promise.all([supabase.from("tbl_chat_rooms").select("id,title,tagline,description,visibility,created_at,created_by,image_url,cover_url").eq("room_type", "community").order("created_at", { ascending: false }), supabase.from("tbl_chat_participants").select("room_id")]); check("Unable to load communities", rooms.error); check("Unable to load community members", members.error); const counts = new Map<number, number>(); (members.data ?? []).forEach((row) => { if (row.room_id !== null) counts.set(Number(row.room_id), (counts.get(Number(row.room_id)) ?? 0) + 1); }); return (rooms.data ?? []).map((row) => ({ ...row, id: String(row.id), created_by: row.created_by === null ? null : String(row.created_by), memberCount: counts.get(Number(row.id)) ?? 0 })); }
-export async function getVibes() { configured(); const result = await supabase.from("tbl_activity_vibes").select("id,user_id,event_id,caption,media_type,media_url,likes_count,visibility,created_at").order("created_at", { ascending: false }); check("Unable to load vibes", result.error); return result.data ?? []; }
-export async function getStories() { configured(); const result = await supabase.from("tbl_stories").select("id,user_id,caption,media_type,media_url,created_at,expires_at,deleted_at").order("created_at", { ascending: false }); check("Unable to load stories", result.error); return result.data ?? []; }
+export async function getCommunities() { configured(); const [rooms, members, userRows] = await Promise.all([supabase.from("tbl_chat_rooms").select("id,title,tagline,description,visibility,created_at,created_by,image_url,cover_url,admin_moderation_status,admin_moderation_reason,admin_moderated_at").eq("room_type", "community").order("created_at", { ascending: false }), supabase.from("tbl_chat_participants").select("room_id"), users()]); check("Unable to load communities", rooms.error); check("Unable to load community members", members.error); const counts = new Map<number, number>(); (members.data ?? []).forEach((row) => { if (row.room_id !== null) counts.set(Number(row.room_id), (counts.get(Number(row.room_id)) ?? 0) + 1); }); const owners = new Map(userRows.map(row => [row.id, row.fullname || row.username])); return (rooms.data ?? []).map((row) => ({ ...row, id: String(row.id), created_by: row.created_by === null ? null : String(row.created_by), ownerName: row.created_by === null ? "Unknown creator" : owners.get(Number(row.created_by)) || `User ${row.created_by}`, memberCount: counts.get(Number(row.id)) ?? 0 })); }
+export async function getVibes() { configured(); const [result, userRows] = await Promise.all([supabase.from("tbl_activity_vibes").select("id,user_id,event_id,caption,media_type,media_url,likes_count,visibility,created_at,admin_moderation_status,admin_moderation_reason,admin_moderated_at").order("created_at", { ascending: false }), users()]); check("Unable to load vibes", result.error); const owners = new Map(userRows.map(row => [row.id, row.fullname || row.username])); return (result.data ?? []).map(row => ({...row, ownerName: row.user_id === null ? "Unknown creator" : owners.get(Number(row.user_id)) || `User ${row.user_id}`})); }
+export async function getStories() { configured(); const [result, userRows] = await Promise.all([supabase.from("tbl_stories").select("id,user_id,caption,media_type,media_url,created_at,expires_at,deleted_at,admin_moderation_status,admin_moderation_reason,admin_moderated_at").order("created_at", { ascending: false }), users()]); check("Unable to load stories", result.error); const owners = new Map(userRows.map(row => [row.id, row.fullname || row.username])); return (result.data ?? []).map(row => ({...row, ownerName: row.user_id === null ? "Unknown creator" : owners.get(Number(row.user_id)) || `User ${row.user_id}`})); }
+export async function moderateContent(type: "community" | "vibe" | "story", id: string | number, action: "hide" | "suspend" | "remove" | "restore", reason: string) { configured(); const result = await supabase.rpc("admin_moderate_content", { p_type: type, p_id: Number(id), p_action: action, p_reason: reason }); check(`Unable to moderate ${type}`, result.error); return result.data as {type:string;id:number;action:string;moderation_status:string;changed:boolean}; }
+export async function getContentPreview(type: "community" | "vibe" | "story", path: string | null) { configured(); if (!path) throw new Error("No media is attached."); if (/^https?:\/\//i.test(path)) return path; const bucket = type === "community" ? "communities" : type === "vibe" ? "vibes" : "stories"; const result = await supabase.storage.from(bucket).createSignedUrl(path.replace(/^\/+/, ""), 300); check("Unable to open content media", result.error); if (!result.data?.signedUrl) throw new Error("Content preview is unavailable."); return result.data.signedUrl; }
 export type VerificationSubmission = {
   id: number;
   user_id: number;

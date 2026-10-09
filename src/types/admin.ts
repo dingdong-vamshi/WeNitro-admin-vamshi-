@@ -114,6 +114,7 @@ export type EventStatus =
   | "ongoing"
   | "completed"
   | "cancelled"
+  | "hidden"
   | "removed"
   | "reported";
 
@@ -181,6 +182,9 @@ export type EventDetail = {
   rawStatus: string;
   isCancelled: boolean;
   isRemoved: boolean;
+  moderationStatus: "active" | "hidden" | "removed";
+  moderationReason?: string;
+  moderatedAt?: string;
   statusBasis: string;
   lifecycleActor?: string;
   lifecycleReason?: string;

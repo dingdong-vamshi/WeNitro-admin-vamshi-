@@ -53,6 +53,7 @@ const statusVariant: Record<EventStatus, "secondary" | "success" | "warning" | "
   ongoing: "success",
   completed: "outline",
   cancelled: "warning",
+  hidden: "warning",
   removed: "danger",
   reported: "danger",
 };
@@ -63,6 +64,7 @@ const statusLabel: Record<EventStatus, string> = {
   ongoing: "Ongoing",
   completed: "Completed",
   cancelled: "Cancelled",
+  hidden: "Hidden",
   removed: "Removed",
   reported: "Reported",
 };

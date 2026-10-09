@@ -1,16 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CircleUserRound, Clock3, Film, Heart, ShieldCheck, Sparkles, UsersRound } from "lucide-react";
+import { CircleUserRound, Clock3, ExternalLink, Film, Heart, ShieldCheck, Sparkles, UsersRound } from "lucide-react";
 
 import { AdminDataState } from "@/components/admin/admin-data-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getCommunities, getStories, getUserInterests, getVerificationSubmissions, getVerificationPreview, getVibes, reviewVerification } from "@/lib/api";
+import { ContentModerationDialog, type ModeratedContentKind } from "@/components/admin/content-moderation-dialog";
+import { getCommunities, getContentPreview, getStories, getUserInterests, getVerificationSubmissions, getVerificationPreview, getVibes, reviewVerification } from "@/lib/api";
 
 type ScreenKind = "communities" | "vibes" | "stories" | "interests" | "verification";
 
@@ -31,27 +33,44 @@ function StatusBadge({ value }: { value: string | null | undefined }) {
   return <Badge variant={label === "approved" || label === "active" ? "default" : "secondary"}>{label}</Badge>;
 }
 
+function PreviewButton({ kind, path }: { kind: ModeratedContentKind; path: string | null | undefined }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const open = async () => {
+    setBusy(true); setError("");
+    try {
+      const url = await getContentPreview(kind, path ?? null);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (failure) { setError(failure instanceof Error ? failure.message : "Preview unavailable"); }
+    finally { setBusy(false); }
+  };
+  return <div className="space-y-1">{path ? <Button size="sm" variant="outline" disabled={busy} onClick={() => void open()}><ExternalLink className="mr-1 h-3.5 w-3.5" />{busy ? "Opening…" : "Inspect media"}</Button> : <span className="text-xs text-muted-foreground">No media</span>}{error && <p role="alert" className="max-w-44 text-xs text-destructive">{error}</p>}</div>;
+}
+
 function CommunitiesTable({ rows }: { rows: Awaited<ReturnType<typeof getCommunities>> }) {
+  const [selected, setSelected] = useState<(typeof rows)[number] | null>(null);
   return (
-    <Table><TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Community</TableHead><TableHead>Visibility</TableHead><TableHead>Members</TableHead><TableHead>Created</TableHead></TableRow></TableHeader>
-      <TableBody>{rows.map((row) => <TableRow key={row.id}><TableCell className="font-mono text-xs">{row.id}</TableCell><TableCell><p className="font-medium">{row.title || "Untitled community"}</p><p className="max-w-md truncate text-xs text-muted-foreground">{row.tagline || row.description || "No description"}</p></TableCell><TableCell><StatusBadge value={row.visibility} /></TableCell><TableCell>{row.memberCount.toLocaleString()}</TableCell><TableCell>{date(row.created_at)}</TableCell></TableRow>)}</TableBody>
-    </Table>
+    <><Table><TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Community</TableHead><TableHead>Creator</TableHead><TableHead>Visibility</TableHead><TableHead>Members</TableHead><TableHead>Moderation status</TableHead><TableHead>Media</TableHead><TableHead>Created</TableHead><TableHead>Moderation / Actions</TableHead></TableRow></TableHeader>
+      <TableBody>{rows.map((row) => <TableRow key={row.id}><TableCell className="font-mono text-xs">{row.id}</TableCell><TableCell><p className="font-medium">{row.title || "Untitled community"}</p><p className="max-w-72 truncate text-xs text-muted-foreground">{row.tagline || row.description || "No description"}</p></TableCell><TableCell>{row.created_by ? <Button asChild size="sm" variant="ghost" className="h-auto p-0"><Link href={`/users/${row.created_by}`}>{row.ownerName}</Link></Button> : row.ownerName}</TableCell><TableCell><StatusBadge value={row.visibility} /></TableCell><TableCell>{row.memberCount.toLocaleString()}</TableCell><TableCell><StatusBadge value={row.admin_moderation_status} />{row.admin_moderation_reason && <p className="mt-1 max-w-44 text-xs text-muted-foreground">{row.admin_moderation_reason}</p>}</TableCell><TableCell><PreviewButton kind="community" path={row.cover_url || row.image_url} /></TableCell><TableCell>{date(row.created_at)}</TableCell><TableCell><Button size="sm" onClick={() => setSelected(row)}>Moderation / Actions</Button></TableCell></TableRow>)}</TableBody>
+    </Table>{selected && <ContentModerationDialog kind="community" id={selected.id} title={selected.title || "Untitled Community"} status={selected.admin_moderation_status} open onOpenChange={open => { if (!open) setSelected(null); }} />}</>
   );
 }
 
 function VibesTable({ rows }: { rows: Awaited<ReturnType<typeof getVibes>> }) {
+  const [selected, setSelected] = useState<(typeof rows)[number] | null>(null);
   return (
-    <Table><TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Caption</TableHead><TableHead>Owner</TableHead><TableHead>Media</TableHead><TableHead>Likes</TableHead><TableHead>Created</TableHead></TableRow></TableHeader>
-      <TableBody>{rows.map((row) => <TableRow key={row.id}><TableCell className="font-mono text-xs">{row.id}</TableCell><TableCell className="max-w-sm truncate font-medium">{row.caption || "No caption"}</TableCell><TableCell>{row.user_id}</TableCell><TableCell>{row.media_type || pathName(row.media_url)}</TableCell><TableCell>{row.likes_count ?? 0}</TableCell><TableCell>{date(row.created_at)}</TableCell></TableRow>)}</TableBody>
-    </Table>
+    <><Table><TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Caption</TableHead><TableHead>Creator</TableHead><TableHead>Media</TableHead><TableHead>Likes</TableHead><TableHead>Moderation status</TableHead><TableHead>Created</TableHead><TableHead>Moderation / Actions</TableHead></TableRow></TableHeader>
+      <TableBody>{rows.map((row) => <TableRow key={row.id}><TableCell className="font-mono text-xs">{row.id}</TableCell><TableCell className="max-w-64 truncate font-medium">{row.caption || "No caption"}</TableCell><TableCell><Button asChild size="sm" variant="ghost" className="h-auto p-0"><Link href={`/users/${row.user_id}`}>{row.ownerName}</Link></Button></TableCell><TableCell><p className="mb-1 text-xs">{row.media_type || pathName(row.media_url)}</p><PreviewButton kind="vibe" path={row.media_url} /></TableCell><TableCell>{row.likes_count ?? 0}</TableCell><TableCell><StatusBadge value={row.admin_moderation_status} />{row.admin_moderation_reason && <p className="mt-1 max-w-44 text-xs text-muted-foreground">{row.admin_moderation_reason}</p>}</TableCell><TableCell>{date(row.created_at)}</TableCell><TableCell><Button size="sm" onClick={() => setSelected(row)}>Moderation / Actions</Button></TableCell></TableRow>)}</TableBody>
+    </Table>{selected && <ContentModerationDialog kind="vibe" id={selected.id} title={selected.caption || `Vibe #${selected.id}`} status={selected.admin_moderation_status} open onOpenChange={open => { if (!open) setSelected(null); }} />}</>
   );
 }
 
 function StoriesTable({ rows }: { rows: Awaited<ReturnType<typeof getStories>> }) {
+  const [selected, setSelected] = useState<(typeof rows)[number] | null>(null);
   return (
-    <Table><TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Caption</TableHead><TableHead>Owner</TableHead><TableHead>Media</TableHead><TableHead>Expires</TableHead><TableHead>Status</TableHead></TableRow></TableHeader>
-      <TableBody>{rows.map((row) => <TableRow key={row.id}><TableCell className="font-mono text-xs">{row.id}</TableCell><TableCell className="max-w-sm truncate font-medium">{row.caption || "No caption"}</TableCell><TableCell>{row.user_id}</TableCell><TableCell>{row.media_type || pathName(row.media_url)}</TableCell><TableCell>{date(row.expires_at)}</TableCell><TableCell><StatusBadge value={row.deleted_at ? "deleted" : new Date(row.expires_at).getTime() < pageLoadedAt ? "expired" : "active"} /></TableCell></TableRow>)}</TableBody>
-    </Table>
+    <><Table><TableHeader><TableRow><TableHead>ID</TableHead><TableHead>Caption</TableHead><TableHead>Creator</TableHead><TableHead>Media</TableHead><TableHead>Expires</TableHead><TableHead>Lifecycle</TableHead><TableHead>Moderation status</TableHead><TableHead>Moderation / Actions</TableHead></TableRow></TableHeader>
+      <TableBody>{rows.map((row) => <TableRow key={row.id}><TableCell className="font-mono text-xs">{row.id}</TableCell><TableCell className="max-w-64 truncate font-medium">{row.caption || "No caption"}</TableCell><TableCell><Button asChild size="sm" variant="ghost" className="h-auto p-0"><Link href={`/users/${row.user_id}`}>{row.ownerName}</Link></Button></TableCell><TableCell><p className="mb-1 text-xs">{row.media_type || pathName(row.media_url)}</p><PreviewButton kind="story" path={row.media_url} /></TableCell><TableCell>{date(row.expires_at)}</TableCell><TableCell><StatusBadge value={row.deleted_at ? "owner deleted" : new Date(row.expires_at).getTime() < pageLoadedAt ? "expired" : "active"} /></TableCell><TableCell><StatusBadge value={row.admin_moderation_status} />{row.admin_moderation_reason && <p className="mt-1 max-w-44 text-xs text-muted-foreground">{row.admin_moderation_reason}</p>}</TableCell><TableCell><Button size="sm" disabled={Boolean(row.deleted_at)} onClick={() => setSelected(row)}>Moderation / Actions</Button></TableCell></TableRow>)}</TableBody>
+    </Table>{selected && <ContentModerationDialog kind="story" id={selected.id} title={selected.caption || `Story #${selected.id}`} status={selected.admin_moderation_status} open onOpenChange={open => { if (!open) setSelected(null); }} />}</>
   );
 }
 

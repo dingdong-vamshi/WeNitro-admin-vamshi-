@@ -9,6 +9,7 @@ import {
   CalendarDays,
   Camera,
   MapPin,
+  ShieldAlert,
   Star,
   Tag,
   Users2,
@@ -20,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { EventModerateDialog } from "@/components/admin/event-moderate-dialog";
 
 const statusVariant: Record<string, "secondary" | "success" | "warning" | "danger" | "outline"> = {
   draft: "secondary",
@@ -51,6 +53,7 @@ export function EventDetailCard({ event }: { event: EventDetail }) {
   const [saving, setSaving] = useState(false);
   const [categoryMessage, setCategoryMessage] = useState('');
   const [pinError, setPinError] = useState('');
+  const [moderating, setModerating] = useState(false);
   const togglePin = async () => {
     if (saving) return; setSaving(true); setPinError('');
     try {
@@ -86,6 +89,7 @@ export function EventDetailCard({ event }: { event: EventDetail }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <Button size="sm" onClick={() => setModerating(true)}><ShieldAlert className="mr-1.5 h-3.5 w-3.5" />Moderation / Actions</Button>
           {(event.status === 'upcoming' || event.isFeatured) && <Button variant="outline" size="sm" disabled={saving} onClick={() => void togglePin()}>{event.isFeatured ? 'Unpin Activity' : 'Pin upcoming Activity'}</Button>}
           {pinError && <p role="alert" className="text-sm text-destructive">{pinError}</p>}
           <Button asChild variant="outline" size="sm">
@@ -187,6 +191,11 @@ export function EventDetailCard({ event }: { event: EventDetail }) {
               <div className="col-span-2 space-y-0.5 rounded-md border bg-muted/20 p-3">
                 <p className="text-xs text-muted-foreground">Why Admin shows “{event.status}”</p>
                 <p>{event.statusBasis}</p>
+              </div>
+              <div className="col-span-2 space-y-1 rounded-md border border-primary/20 bg-primary/5 p-3">
+                <p className="text-xs font-medium text-muted-foreground">Admin moderation</p>
+                <div className="flex items-center gap-2"><Badge variant={event.moderationStatus === "active" ? "success" : event.moderationStatus === "hidden" ? "warning" : "danger"} className="capitalize">{event.moderationStatus}</Badge><span className="text-xs text-muted-foreground">{timestamp(event.moderatedAt)}</span></div>
+                <p className="text-sm">{event.moderationReason || "No Admin restriction recorded."}</p>
               </div>
               <div className="col-span-2 space-y-0.5">
                 <p className="text-xs text-muted-foreground">Location</p>
@@ -297,6 +306,8 @@ export function EventDetailCard({ event }: { event: EventDetail }) {
           </Card>
         </div>
       </div>
+
+      <EventModerateDialog eventId={event.id} eventTitle={event.title} open={moderating} onOpenChange={setModerating} onConfirm={() => {}} />
 
     </>
   );
