@@ -25,6 +25,7 @@ type UserReportRow = { status:string; id: number; target_user_id: number; report
 type EventReportRow = { status:string; id: number; event_id: number; reporter_id: number; reason: string; description: string | null; created_at: string | null };
 type CommunityReportRow = { status:string; id: number; community_id: number; reporter_id: number; reason: string; description: string | null; created_at: string };
 type VibeReportRow = { id: number; vibe_id: number; reported_by: number; reason: string; details: string; status: string; created_at: string };
+type VibeRow = { id: number; user_id: number; caption: string | null; media_type: string | null };
 type ActivityPaymentRow = {
   id: number | string;
   event_id: number | string;
@@ -56,6 +57,7 @@ const dateValue = (value: string | null | undefined) => value ?? new Date(0).toI
 const locationOf = (user: UserRow) => user.nationality || "Not provided";
 const paginate = <T,>(rows: T[], page = 1, pageSize = 10) => rows.slice((page - 1) * pageSize, page * pageSize);
 const formatNumber = (value: number) => new Intl.NumberFormat("en-IN").format(value);
+const explicitQaMarker = (value: string | null | undefined) => /(^|\W)qa(\W|$)|\[test\]|test fixture|synthetic test/i.test(value ?? "");
 
 function userStatus(user: UserRow): A.UserStatus {
   if (user.is_admin_restricted) return user.banned_until && new Date(user.banned_until).getFullYear() > new Date().getFullYear()+10 ? "banned" : "suspended";
@@ -640,17 +642,20 @@ export async function getSecurityBlockedUsers(params?: { search?: string; reason
  return {rows:paginate(rows,params?.page??1,params?.pageSize??6),total:rows.length};
 }
 export async function getSafetyReports(params?: { search?: string; status?: A.SafetyReportStatus | "all"; reportType?: A.SafetyReportType | "all"; page?: number; pageSize?: number }): Promise<{ rows: A.SafetyReport[]; total: number }> {
- const [reportRows,communityReportRows,userRows,eventRows,communityRows]=await Promise.all([reports(true),communityReports(true),users(),events(),collectRows("Unable to load Communities",(from,to)=>supabase.from("tbl_chat_rooms").select("id,title,created_by").eq("room_type","community").order("id",{ascending:false}).range(from,to))]);
- const userMap=new Map(userRows.map(r=>[r.id,r])),eventMap=new Map(eventRows.map(r=>[r.id,r])),communityMap=new Map(communityRows.map(r=>[Number(r.id),r]));
+ const [reportRows,communityReportRows,vibeReportRows,userRows,eventRows,communityRows,vibeRows]=await Promise.all([reports(true),communityReports(true),vibeReports(),users(),events(),collectRows("Unable to load Communities",(from,to)=>supabase.from("tbl_chat_rooms").select("id,title,created_by").eq("room_type","community").order("id",{ascending:false}).range(from,to)),collectRows("Unable to load Vibes",(from,to)=>supabase.from("tbl_activity_vibes").select("id,user_id,caption,media_type").order("id",{ascending:false}).range(from,to)) as Promise<VibeRow[]>]);
+ const userMap=new Map(userRows.map(r=>[r.id,r])),eventMap=new Map(eventRows.map(r=>[r.id,r])),communityMap=new Map(communityRows.map(r=>[Number(r.id),r])),vibeMap=new Map(vibeRows.map(r=>[Number(r.id),r]));
  const search=params?.search?.toLowerCase().trim()??"";
- const rows:A.SafetyReport[]=[...reportRows[0].map(r=>({...r,sourceType:"user" as const,targetId:r.target_user_id})),...reportRows[1].map(r=>({...r,sourceType:"event" as const,targetId:r.event_id})),...communityReportRows.map(r=>({...r,sourceType:"community" as const,targetId:r.community_id}))].map(row=>{
- const event=row.sourceType==="event"?eventMap.get(row.targetId):undefined,community=row.sourceType==="community"?communityMap.get(row.targetId):undefined;
- const targetOwnerId=event?.created_by??(community?.created_by==null?(row.sourceType==="user"?row.targetId:0):Number(community.created_by));
- const target=userMap.get(targetOwnerId),reporter=userMap.get(row.reporter_id),text=row.reason.toLowerCase();
+ const rows:A.SafetyReport[]=[...reportRows[0].map(r=>({...r,sourceType:"user" as const,targetId:r.target_user_id,reporterId:r.reporter_id,reporterDescription:r.description})),...reportRows[1].map(r=>({...r,sourceType:"event" as const,targetId:r.event_id,reporterId:r.reporter_id,reporterDescription:r.description})),...communityReportRows.map(r=>({...r,sourceType:"community" as const,targetId:r.community_id,reporterId:r.reporter_id,reporterDescription:r.description})),...vibeReportRows.map(r=>({...r,sourceType:"vibe" as const,targetId:r.vibe_id,reporterId:r.reported_by,reporterDescription:r.details,created_at:r.created_at}))].map(row=>{
+ const event=row.sourceType==="event"?eventMap.get(row.targetId):undefined,community=row.sourceType==="community"?communityMap.get(row.targetId):undefined,vibe=row.sourceType==="vibe"?vibeMap.get(row.targetId):undefined;
+ const targetOwnerId=event?.created_by??(community?.created_by==null?(vibe?.user_id??(row.sourceType==="user"?row.targetId:0)):Number(community.created_by));
+ const target=userMap.get(targetOwnerId),reporter=userMap.get(row.reporterId),text=row.reason.toLowerCase();
  const reportType:A.SafetyReportType=text.includes("harass")?"harassment":text.includes("fake")?(row.sourceType==="event"?"fake_event":"impersonation"):text.includes("spam")?"spam":"other";
  const status:A.SafetyReportStatus=row.status==="reviewing"?"investigating":row.status==="resolved"?"resolved":row.status==="dismissed"?"dismissed":"pending";
- return {id:row.sourceType+"-"+row.id,sourceType:row.sourceType,sourceId:String(row.id),targetId:String(row.targetId),reportType,reportedUser:event?.title||community?.title||target?.fullname||`${row.sourceType} ${row.targetId}`,reportedUserId:String(target?.id??""),reportedBy:reporter?.fullname||`User ${row.reporter_id}`,reportedByAvatar:(reporter?.fullname||"Member").slice(0,2).toUpperCase(),status,description:row.description||row.reason,evidenceCount:0,createdAt:row.created_at||""};
- }).filter(r=>(!search||[r.id,r.reportedUser,r.reportedBy,r.description].some(v=>v.toLowerCase().includes(search)))&&(!params?.reportType||params.reportType==="all"||r.reportType===params.reportType)&&(!params?.status||params.status==="all"||r.status===params.status)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+ const targetLabel=event?.title||community?.title||vibe?.caption||target?.fullname||`${row.sourceType} ${row.targetId}`;
+ const description=row.reporterDescription?.trim()||"";
+ const isTestReport=reporter?.is_test_account===true||target?.is_test_account===true||[row.reason,description,targetLabel].some(explicitQaMarker);
+ return {id:row.sourceType+"-"+row.id,sourceType:row.sourceType,sourceId:String(row.id),targetId:String(row.targetId),reportType,reason:row.reason,reportedUser:targetLabel,reportedUserId:String(target?.id??""),reportedBy:reporter?.fullname||`User ${row.reporterId}`,reportedByAvatar:(reporter?.fullname||"Member").slice(0,2).toUpperCase(),status,description,evidenceCount:0,createdAt:row.created_at||"",isTestReport};
+ }).filter(r=>(!search||[r.id,r.reason,r.reportedUser,r.reportedBy,r.description].some(v=>v.toLowerCase().includes(search)))&&(!params?.reportType||params.reportType==="all"||r.reportType===params.reportType)&&(!params?.status||params.status==="all"||r.status===params.status)).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
  return {rows:paginate(rows,params?.page??1,params?.pageSize??6),total:rows.length};
 }
 export async function getAbuseAlerts(params?: { search?: string; severity?: "low" | "medium" | "high" | "all"; page?: number; pageSize?: number }): Promise<{ rows: A.AbuseAlert[]; total: number; aiStats: A.AiModerationStats }> { void params; return { rows: [], total: 0, aiStats: { flaggedMessages: 0, flaggedImages: 0, potentialFakeEvents: 0 } }; }
@@ -732,6 +737,8 @@ export async function moderateUser(id:string,duration:"permanent"|"30d"|"90d"|"r
 export async function moderateActivity(id:string,action:string,reason:string){
  configured();const result=await supabase.rpc("admin_moderate_activity",{p_event_id:Number(id),p_action:action,p_reason:reason});check("Unable to moderate activity",result.error);return result.data;
 }
-export async function reviewReport(type:"user"|"event"|"community",id:string,status:string,reason:string){
- configured();const result=await supabase.rpc("admin_review_report",{p_type:type,p_id:Number(id),p_status:status,p_reason:reason});check("Unable to review report",result.error);return result.data;
+export async function reviewReport(type:"user"|"event"|"community"|"vibe",id:string,status:string,reason:string){
+ configured();
+ if(type==="vibe"){await reviewVibeReport(id,status as "reviewing"|"resolved"|"dismissed");return;}
+ const result=await supabase.rpc("admin_review_report",{p_type:type,p_id:Number(id),p_status:status,p_reason:reason});check("Unable to review report",result.error);return result.data;
 }

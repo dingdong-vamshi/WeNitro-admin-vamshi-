@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import ts from 'typescript';
 const load=(path,deps)=>{const exports={};new Function('exports','require',ts.transpile(fs.readFileSync(path,'utf8'),{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}))(exports,name=>{assert.ok(name in deps,`Unexpected dependency ${name}`);return deps[name];});return exports;};
-const report=(id,overrides={})=>({id:`user-${id}`,sourceType:'user',sourceId:String(id),targetId:'7',reportedUserId:'7',reportedUser:'Member Seven',reportedBy:'Reporter',description:'Chat harassment allegation',reportType:'harassment',status:'pending',createdAt:`2026-10-0${id}T10:00:00Z`,...overrides});
+const report=(id,overrides={})=>({id:`user-${id}`,sourceType:'user',sourceId:String(id),targetId:'7',reportedUserId:'7',reportedUser:'Member Seven',reportedBy:'Reporter',description:'Chat harassment allegation',reason:'harassment',reportType:'harassment',status:'pending',createdAt:`2026-10-0${id}T10:00:00Z`,isTestReport:false,evidenceCount:0,...overrides});
 const users=[{id:'7',name:'Member Seven',username:'seven',status:'active',eventsHosted:2,eventsJoined:3}];
 const reports=[report(1),report(2,{status:'resolved'}),report(3,{sourceType:'event',targetId:'11',reportedUserId:'',reportedUser:'Activity Eleven',reportType:'other',description:'Image concern'}),report(4,{sourceType:'event',targetId:'12',reportedUserId:'',reportedUser:'Activity Twelve',reportType:'other',description:'Photo concern'})];
 const events=[{id:'11',hostAccountType:'partner'},{id:'12',hostAccountType:'individual'}];
@@ -15,10 +15,11 @@ assert.deepEqual((await model.getPartnerActivities()).map(event=>event.id),['11'
 // Exercise the actual investigation component's review operation and frozen restriction target.
 const state=[];let cursor=0,dirty=false,tree,queryRows=cases;const writes=[];let invalidations=0;
 const jsx=(type,props)=>({type,props});
+const presentation=load('src/lib/report-presentation.ts',{});
 const panel=load('src/components/admin/investigation-panel.tsx',{
  'react/jsx-runtime':{jsx,jsxs:jsx},react:{useState(initial){const i=cursor++;if(!(i in state))state[i]=initial;return[state[i],v=>{state[i]=typeof v==='function'?v(state[i]):v;dirty=true;}];}},
  'next/link':{default:'Link'},'@tanstack/react-query':{useQueryClient:()=>({invalidateQueries:async()=>invalidations++}),useQuery:()=>({data:queryRows,isPending:false,isError:false,isFetching:false,refetch:()=>{}})},
- '@/lib/admin-review-read-models':model,'@/lib/api':{reviewReport:async(...args)=>writes.push(args)},'./admin-data-state':{AdminDataState:'AdminDataState'},'./ban-user-dialog':{BanUserDialog:'BanUserDialog'},'@/components/ui/button':{Button:'Button'},'@/components/ui/badge':{Badge:'Badge'},
+ '@/lib/admin-review-read-models':model,'@/lib/api':{reviewReport:async(...args)=>writes.push(args)},'@/lib/report-presentation':presentation,'./admin-data-state':{AdminDataState:'AdminDataState'},'./ban-user-dialog':{BanUserDialog:'BanUserDialog'},'@/components/ui/button':{Button:'Button'},'@/components/ui/badge':{Badge:'Badge'},
 }).ReportInvestigation;
 const render=()=>{cursor=0;dirty=false;tree=panel({});if(dirty)render();};
 const find=(node,p)=>{if(!node||typeof node!=='object')return null;if(p(node))return node;for(const child of [node.props?.children].flat(Infinity)){const found=find(child,p);if(found)return found;}return null;};
@@ -36,8 +37,11 @@ const apiSource=fs.readFileSync('src/lib/api.ts','utf8');
 const tableSource=fs.readFileSync('src/components/admin/safety-reports-table.tsx','utf8');
 const investigationSource=fs.readFileSync('src/components/admin/investigation-panel.tsx','utf8');
 assert.match(apiSource,/communityReports\(true\)/,'Community reports must be loaded into the Admin moderation queue');
+assert.match(apiSource,/vibeReports\(\)/,'Vibe reports must be loaded into the Admin moderation queue');
 assert.match(apiSource,/sourceType:\"community\" as const/,'Community reports must retain a distinct report type');
 assert.match(apiSource,/admin_review_report/,'Admin report decisions must use the authorized audit RPC');
-assert.match(tableSource,/sourceType === \"community\"/,'Safety Reports must label and link Community targets');
-assert.match(investigationSource,/sourceType === 'community'/,'Investigation view must link Community targets');
-console.log('PASS: real report grouping/status/topic selection/unknown-target isolation, Community moderation queue/link coverage, Partner-only activities, actual review RPC arguments/cache refresh, required notes, frozen restriction targets, and valid detail redirect. Offline executable behavioral tests only.');
+assert.match(tableSource,/reportTargetHref/,'Safety Reports must link directly to reported targets');
+assert.match(investigationSource,/TEST \/ QA/,'Investigation cards must clearly label QA reports');
+for(const [sourceType,targetId,expected] of [['community','244','#/community/244'],['event','282','#/activity/282'],['vibe','115','#/vibe/115'],['user','70','#/profile/70']])assert.equal(presentation.reportTargetHref({sourceType,targetId}),`https://wenitro-app.vercel.app/${expected}`);
+assert.equal(presentation.reportEvidenceContext({evidenceCount:0}),'No file evidence is stored. The reporter description is the submitted context.');
+console.log('PASS: real report grouping/status/topic selection/unknown-target isolation, Community and Vibe moderation coverage, all reported-target deep links, QA labeling, explicit evidence context, Partner-only activities, actual review RPC arguments/cache refresh, required notes, frozen restriction targets, and valid detail redirect. Offline executable behavioral tests only.');

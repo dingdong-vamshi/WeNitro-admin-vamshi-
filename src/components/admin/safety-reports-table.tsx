@@ -22,6 +22,7 @@ import Link from "next/link";
 import { BanUserDialog } from "@/components/admin/ban-user-dialog";
 import { AdminDataState } from "@/components/admin/admin-data-state";
 import { useDebounce } from "@/hooks/use-debounce";
+import { reportEvidenceContext, reportStatusLabel, reportSubmittedAt, reportTargetHref, reportTargetType } from "@/lib/report-presentation";
 
 const statusVariant: Record<SafetyReportStatus, "warning" | "info" | "success"> = {
   pending: "warning",
@@ -138,6 +139,7 @@ export function SafetyReportsTable() {
               <TableRow className="bg-muted/40">
                 <TableHead>Report ID</TableHead>
                 <TableHead>Report Type</TableHead>
+                <TableHead>Reason / Category</TableHead>
                 <TableHead>Reported member / Activity</TableHead>
                 <TableHead>Reporter</TableHead>
                 <TableHead>Status</TableHead>
@@ -148,14 +150,14 @@ export function SafetyReportsTable() {
             <TableBody>
               {query.isPending && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
                     Loading…
                   </TableCell>
                 </TableRow>
               )}
               {query.data?.rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
                     No reports found.
                   </TableCell>
                 </TableRow>
@@ -170,8 +172,9 @@ export function SafetyReportsTable() {
                   >
                     <TableCell className="font-mono text-xs text-muted-foreground">{report.id}</TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{typeLabel[report.reportType]}</Badge>
+                      <div className="flex flex-wrap gap-1"><Badge variant="secondary">{reportTargetType(report)}</Badge>{report.isTestReport ? <Badge variant="secondary">TEST / QA</Badge> : null}</div>
                     </TableCell>
+                    <TableCell className="max-w-48 truncate text-sm" title={report.reason}>{report.reason || "Not supplied"}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Avatar className="h-6 w-6 shrink-0">
@@ -243,21 +246,23 @@ export function SafetyReportsTable() {
       {selectedReport ? (
         <Card className="h-fit">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">{selectedReport.id}</CardTitle>
-            <CardDescription>
-              <Badge variant={statusVariant[selectedReport.status]}>{statusLabel[selectedReport.status]}</Badge>
+            <CardTitle className="flex flex-wrap items-center gap-2 text-base">{selectedReport.id}{selectedReport.isTestReport ? <Badge variant="secondary">TEST / QA</Badge> : null}</CardTitle>
+            <CardDescription className="flex flex-wrap gap-2">
+              <Badge variant="secondary">{reportTargetType(selectedReport)} report</Badge>
+              <Badge variant={statusVariant[selectedReport.status]}>{reportStatusLabel(selectedReport)}</Badge>
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <div className="space-y-3">
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Reported {selectedReport.sourceType === "community" ? "Community" : selectedReport.sourceType === "event" ? "Activity" : "User"}</p>
+                <p className="text-xs text-muted-foreground mb-1">Reported target</p>
                 <div className="flex items-center gap-2">
                   <Avatar className="h-7 w-7">
                     <AvatarFallback className="text-xs">{selectedReport.reportedUser.slice(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <span className="font-medium">{selectedReport.reportedUser}</span>
                 </div>
+                <p className="mt-1 text-xs text-muted-foreground">{reportTargetType(selectedReport)} #{selectedReport.targetId}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Reported By</p>
@@ -269,27 +274,32 @@ export function SafetyReportsTable() {
                 </div>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Report Type</p>
-                <Badge variant="secondary">{typeLabel[selectedReport.reportType]}</Badge>
+                <p className="text-xs text-muted-foreground mb-1">Reason / Category</p>
+                <p className="font-medium">{selectedReport.reason || "No reason category supplied"}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Description</p>
-                <p className="text-sm leading-relaxed rounded-md bg-muted/40 p-2.5">{selectedReport.description}</p>
+                <p className="text-xs text-muted-foreground mb-1">Reporter Description</p>
+                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed rounded-md bg-muted/40 p-2.5">{selectedReport.description || "No reporter description was provided."}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Evidence</p>
-                <p className="text-sm">{selectedReport.evidenceCount} attached file{selectedReport.evidenceCount !== 1 ? "s" : ""}</p>
+                <p className="text-xs text-muted-foreground mb-1">Evidence / Context</p>
+                <p className="text-sm">{reportEvidenceContext(selectedReport)}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground mb-1">Date Submitted</p>
-                <p className="text-sm">{selectedReport.createdAt}</p>
+                <p className="text-xs text-muted-foreground mb-1">Submitted Time</p>
+                <p className="text-sm">{reportSubmittedAt(selectedReport.createdAt)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-1">Current Status</p>
+                <Badge variant={statusVariant[selectedReport.status]}>{reportStatusLabel(selectedReport)}</Badge>
               </div>
             </div>
 
             <div className="border-t border-border pt-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Investigation Panel</p>
               <div className="grid grid-cols-1 gap-1.5">
-                {selectedReport.sourceType === "community" ? <a className="rounded border p-2" href={`https://wenitro-app.vercel.app/#/communityDetail/${selectedReport.targetId}`} target="_blank" rel="noreferrer">Open reported Community</a> : <Link className="rounded border p-2" href={selectedReport.sourceType==="event"?`/events/${selectedReport.targetId}`:`/users/${selectedReport.targetId}`}>Open reported {selectedReport.sourceType==="event"?"Activity":"member"}</Link>}
+                <a className="rounded border p-2 font-medium text-primary" href={reportTargetHref(selectedReport)} target="_blank" rel="noreferrer">Open reported {reportTargetType(selectedReport)} in WeNitro</a>
+                {selectedReport.sourceType === "event" ? <Link className="rounded border p-2" href={`/events/${selectedReport.targetId}`}>Admin Activity details</Link> : null}
                 {selectedReport.reportedUserId&&<Link className="rounded border p-2" href={`/users/${selectedReport.reportedUserId}`}>Member profile and participation</Link>}
                 <Button variant="outline" onClick={()=>{setSearch(selectedReport.reportedUser);setStatus("all");setPage(1);}}>Previous reports for this subject</Button>
               </div>

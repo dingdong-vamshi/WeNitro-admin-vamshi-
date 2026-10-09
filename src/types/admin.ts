@@ -1069,10 +1069,11 @@ export type SafetyReportType =
 
 export type SafetyReport = {
   id: string;
-  sourceType: "user" | "event" | "community";
+  sourceType: "user" | "event" | "community" | "vibe";
   sourceId: string;
   targetId: string;
   reportType: SafetyReportType;
+  reason: string;
   reportedUser: string;
   reportedUserId: string;
   reportedBy: string;
@@ -1081,6 +1082,7 @@ export type SafetyReport = {
   description: string;
   evidenceCount: number;
   createdAt: string;
+  isTestReport: boolean;
 };
 
 export type AbuseAlertType =
