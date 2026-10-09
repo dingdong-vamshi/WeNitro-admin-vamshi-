@@ -19,8 +19,8 @@ export function HubbleStagingCreditCard({ userId, userName }: { userId: string; 
   const { role } = useAdminAuth();
   const canManage = role === "admin" || role === "super_admin";
   const queryClient = useQueryClient();
-  const [targetBalance, setTargetBalance] = useState<200 | 250 | 500>(200);
-  const [reason, setReason] = useState("Approved Hubble staging client test");
+  const [targetBalance, setTargetBalance] = useState<200 | 250 | 500>(250);
+  const [reason, setReason] = useState("HUBBLE_PRODUCTION_QA_TEST_CREDIT");
   const [message, setMessage] = useState<string | null>(null);
   const requestKey = useRef(newKey());
   const query = useQuery({
@@ -40,7 +40,7 @@ export function HubbleStagingCreditCard({ userId, userName }: { userId: string; 
     mutationFn: () => grantHubbleStagingCredit({ userId, targetBalance, reason: reason.trim(), idempotencyKey: requestKey.current }),
     onSuccess: async (result) => {
       setMessage(result.granted > 0
-        ? `Granted ${result.granted} staging Nitro. Balance is now ${result.currentBalance}.`
+        ? `Granted ${result.granted} QA Nitro. Balance is now ${result.currentBalance}.`
         : `No credit was needed. Balance is already ${result.currentBalance}.`);
       requestKey.current = newKey();
       await refresh();
@@ -48,11 +48,11 @@ export function HubbleStagingCreditCard({ userId, userName }: { userId: string; 
   });
 
   const reverse = useMutation({
-    mutationFn: (creditId: number) => reverseHubbleStagingCredit({ creditId, reason: "Approved staging test cleanup" }),
+    mutationFn: (creditId: number) => reverseHubbleStagingCredit({ creditId, reason: "Approved Hubble QA test cleanup" }),
     onSuccess: async (result) => {
       setMessage(result.reversed > 0
-        ? `Reversed ${result.reversed} unused staging Nitro. Balance is now ${result.currentBalance}.`
-        : "This staging credit has no unused amount to reverse.");
+        ? `Reversed ${result.reversed} unused QA Nitro. Balance is now ${result.currentBalance}.`
+        : "This QA credit has no unused amount to reverse.");
       await refresh();
     },
   });
@@ -69,13 +69,13 @@ export function HubbleStagingCreditCard({ userId, userName }: { userId: string; 
           <div>
             <CardTitle className="flex items-center gap-2">
               <FlaskConical className="h-5 w-5 text-violet-500" />
-              Hubble staging test credit
+              Hubble QA test credit
             </CardTitle>
             <CardDescription className="mt-1.5">
-              Add only enough temporary, auditable Nitro for an approved staging tester.
+              Add only enough temporary, auditable Nitro for an approved Hubble tester.
             </CardDescription>
           </div>
-          <Badge variant="secondary">STAGING ONLY</Badge>
+          <Badge variant="secondary">AUDITED · REVERSIBLE</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-5 pt-5">
@@ -97,7 +97,7 @@ export function HubbleStagingCreditCard({ userId, userName }: { userId: string; 
         </div>
 
         <div className="space-y-2">
-          <p className="text-sm font-semibold">Target staging balance</p>
+          <p className="text-sm font-semibold">Target QA balance</p>
           <div className="flex gap-2">
             {[200, 250, 500].map((value) => (
               <Button key={value} type="button" size="sm" variant={targetBalance === value ? "default" : "outline"} onClick={() => setTargetBalance(value as 200 | 250 | 500)}>
@@ -117,7 +117,7 @@ export function HubbleStagingCreditCard({ userId, userName }: { userId: string; 
             <ShieldCheck className="h-4 w-4" />
             {grant.isPending ? "Granting…" : needed > 0 ? `Grant +${needed} test Nitro` : "Confirm already eligible"}
           </Button>
-          <p className="text-xs text-muted-foreground">Category: HUBBLE_STAGING_TEST_CREDIT</p>
+          <p className="text-xs text-muted-foreground">Category: HUBBLE_PRODUCTION_QA_TEST_CREDIT</p>
         </div>
 
         {message ? <p className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">{message}</p> : null}
