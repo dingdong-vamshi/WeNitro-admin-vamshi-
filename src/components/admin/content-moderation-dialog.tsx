@@ -29,8 +29,10 @@ export function ContentModerationDialog({ kind, id, title, status, open, onOpenC
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => { setAction(actions[0]); setCategory(categories[0]); setNotes(""); setError(""); }, [actions, id, open]);
-  const reason = notes.trim() ? `${category} — ${notes.trim()}` : category;
+  const reason = `Category: ${category}${notes.trim() ? ` — ${notes.trim()}` : ""}`;
+  const valid = actions.includes(action) && categories.includes(category) && reason.length <= 1000;
   async function save() {
+    if (busy || !valid) return;
     setBusy(true); setError("");
     try {
       await moderateContent(kind, id, action, reason);
@@ -47,6 +49,6 @@ export function ContentModerationDialog({ kind, id, title, status, open, onOpenC
     <label className="text-sm font-medium">Notes (optional)<textarea aria-label="Moderation notes" className="mt-1 min-h-24 w-full rounded border bg-background p-2" maxLength={900} placeholder="Add the evidence or context Admin used for this decision." value={notes} onChange={event => setNotes(event.target.value)} /></label>
     <p className="rounded border bg-muted/30 p-3 text-xs text-muted-foreground">Hidden and removed content disappears from normal discovery and direct user-app reads. A suspended Community also rejects new posts, messages, joins, and membership changes.</p>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-    <DialogFooter><Button variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>Cancel</Button><Button disabled={busy || reason.length < 5} onClick={() => void save()}>{busy ? "Saving…" : "Apply moderation"}</Button></DialogFooter>
+    <DialogFooter><Button variant="outline" disabled={busy} onClick={() => onOpenChange(false)}>Cancel</Button><Button disabled={busy || !valid} onClick={() => void save()}>{busy ? "Saving…" : "Apply moderation"}</Button></DialogFooter>
   </DialogContent></Dialog>;
 }

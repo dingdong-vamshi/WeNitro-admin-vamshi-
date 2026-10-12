@@ -489,7 +489,7 @@ export type ContentModerationQueueItem = {
   user_id: number;
   items: Array<{
     field: string;
-    kind: "text" | "image";
+    kind: "text" | "image" | "video";
     preview: string;
     storage_bucket: string | null;
     storage_path: string | null;

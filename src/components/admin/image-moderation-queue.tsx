@@ -22,7 +22,7 @@ export function ImageModerationQueueGrid() {
     onSuccess: async () => { await client.invalidateQueries({ queryKey: ["content-moderation"] }); },
   });
   const imageItems = useMemo(() => (query.data ?? []).flatMap((row) => row.items
-    .filter((item) => item.kind === "image" && item.storage_bucket && item.storage_path)
+    .filter((item) => (item.kind === "image" || item.kind === "video") && item.storage_bucket && item.storage_path)
     .map((item) => ({ key: `${row.id}:${item.field}:${item.storage_path}`, bucket: item.storage_bucket!, path: item.storage_path! }))), [query.data]);
   useEffect(() => {
     let cancelled = false;
@@ -35,7 +35,7 @@ export function ImageModerationQueueGrid() {
 
   return <div className="space-y-5">
     <div className="rounded-lg border bg-muted/30 p-4 text-sm">
-      New or changed public text and images pass through <strong>omni-moderation-latest</strong>. Provider failures stay private and move here after bounded retries. Approval allows the author to resubmit the exact content; rejection keeps it blocked.
+      New or changed public text and images pass through <strong>omni-moderation-latest</strong>. Provider failures stay private and move here after bounded retries. Videos stay private until reviewed here. Approval allows the author to resubmit the exact content; rejection keeps it blocked.
     </div>
     <div className="flex gap-2" aria-label="Moderation status filter">
       {(["all", "pending", "review"] as const).map((status) => <Button key={status} size="sm" variant={filter === status ? "default" : "outline"} onClick={() => setFilter(status)}>{status === "all" ? "All" : status === "pending" ? "Pending" : "Admin Review"}</Button>)}
@@ -53,6 +53,7 @@ export function ImageModerationQueueGrid() {
           return <div className="rounded-lg border bg-background p-3" key={`${item.field}-${index}`}>
             <div className="mb-2 flex items-center justify-between"><span className="text-sm font-medium">{item.field.replaceAll("_", " ")}</span><Badge variant="outline">{item.kind}</Badge></div>
             {item.kind === "text" ? <p className="whitespace-pre-wrap break-words text-sm">{item.preview || "No text preview"}</p>
+              : previews[key] && item.kind === "video" ? <video controls preload="metadata" src={previews[key]} aria-label="Private video moderation preview" className="max-h-72 w-full rounded-md bg-muted" />
               : previews[key] ? <Image unoptimized width={720} height={480} src={previews[key]} alt={`Private ${item.field} moderation preview`} className="max-h-72 w-full rounded-md bg-muted object-contain" />
               : <p className="text-sm text-muted-foreground">Private preview unavailable or loading.</p>}
           </div>;
