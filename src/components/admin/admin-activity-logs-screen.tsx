@@ -208,7 +208,15 @@ export function AdminActivityLogsScreen() {
                 </div>
               </dl>
 
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full" onClick={() => {
+                const blob = new Blob([JSON.stringify(selected, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `wenitro-admin-access-audit-${selected.id}.json`;
+                link.click();
+                URL.revokeObjectURL(url);
+              }}>
                 <Download className="h-4 w-4" />
                 Export This Log
               </Button>

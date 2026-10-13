@@ -1,12 +1,14 @@
 "use client";
 
 import { Activity, Ban, CalendarDays, CheckCircle2, Mail, MapPin, Phone, ShieldOff, ShieldAlert, Star, UserCheck } from "lucide-react";
+import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
 import { UserStatusBadge } from "@/components/admin/user-status-badge";
 import { HubbleStagingCreditCard } from "@/components/admin/hubble-staging-credit-card";
+import { BanUserDialog, UnbanUserDialog } from "@/components/admin/ban-user-dialog";
 import { AdminDataState } from "@/components/admin/admin-data-state";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +19,8 @@ import { getUserActivity, getUserProfile } from "@/lib/api";
 
 export default function UserProfilePage() {
   const { id } = useParams<{ id: string }>();
+  const [restrictOpen, setRestrictOpen] = useState(false);
+  const [restoreOpen, setRestoreOpen] = useState(false);
   const query = useQuery({ queryKey: ["user-profile", id], queryFn: async () => ({ profile: await getUserProfile(id), activities: await getUserActivity(id) }), enabled: Boolean(id) });
   if (query.isLoading) return <AdminDataState title="user profile" loading />;
   if (query.error) return <AdminDataState title="user profile" error={query.error} onRetry={() => void query.refetch()} />;
@@ -39,28 +43,27 @@ export default function UserProfilePage() {
               View Activity History
             </Link>
           </Button>
-          <Button variant="outline" size="sm">
-            <ShieldAlert className="mr-1.5 h-3.5 w-3.5" />
-            Send Warning
+          <Button asChild variant="outline" size="sm">
+            <Link href="/notifications">
+              <Mail className="mr-1.5 h-3.5 w-3.5" />
+              Open Notifications
+            </Link>
           </Button>
-          <Button variant="outline" size="sm">
-            <UserCheck className="mr-1.5 h-3.5 w-3.5" />
-            Verify User
+          <Button asChild variant="outline" size="sm">
+            <Link href="/verification">
+              <UserCheck className="mr-1.5 h-3.5 w-3.5" />
+              Review Verification
+            </Link>
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => setRestrictOpen(true)}>
             <ShieldOff className="mr-1.5 h-3.5 w-3.5" />
-            Suspend Account
+            Restrict account
           </Button>
-          <Button variant="outline" size="sm">
-            <ShieldOff className="mr-1.5 h-3.5 w-3.5" />
-            Block User
-          </Button>
-          <Button variant="destructive" size="sm">
-            <Ban className="mr-1.5 h-3.5 w-3.5" />
-            Ban User
-          </Button>
+          {(profile.status === "banned" || profile.status === "suspended") && <Button variant="outline" size="sm" onClick={() => setRestoreOpen(true)}>Lift Admin restriction</Button>}
         </div>
       </div>
+      <BanUserDialog userId={profile.id} userName={profile.name} open={restrictOpen} onOpenChange={setRestrictOpen} onConfirm={() => void query.refetch()} />
+      <UnbanUserDialog userId={profile.id} userName={profile.name} open={restoreOpen} onOpenChange={setRestoreOpen} onConfirm={() => void query.refetch()} />
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         {/* Left — identity & stats */}
