@@ -2,7 +2,19 @@ import {supabase} from "@/lib/supabase";
 export type WorkspaceKind="notification_template"|"email_template"|"reward"|"coupon"|"campaign";
 export type WorkspacePayload={name:string;title:string;body:string;channel:"in_app"|"push"|"email";recipients:number[];status:"draft";notes:string};
 export type WorkspaceDocument={id:string;kind:WorkspaceKind;payload:WorkspacePayload;version:number;status:"draft"|"sent";archived:boolean;updated_at:string;sent_at:string|null;scheduled_at?:string|null;last_error?:string|null;delivered:number;opened:number};
+export type WorkspaceRecipient={id:number;name:string;username:string;email:string;isTestAccount:boolean};
 export async function listWorkspace(kind:WorkspaceKind){const rows:WorkspaceDocument[]=[];for(let from=0;;from+=1000){const r=await supabase.rpc("admin_workspace_list",{p_kind:kind}).range(from,from+999);if(r.error)throw r.error;const batch=(r.data??[]) as WorkspaceDocument[];rows.push(...batch);if(batch.length<1000)return rows;}}
+export async function listWorkspaceRecipients(){
+ const rows:Record<string,unknown>[]=[];
+ for(let from=0;;from+=1000){
+  const result=await supabase.rpc("admin_list_users").range(from,from+999);
+  if(result.error)throw result.error;
+  const batch=(result.data??[]) as Record<string,unknown>[];rows.push(...batch);if(batch.length<1000)break;
+ }
+ return rows.filter(row=>Number(row.is_active)!==0&&Number(row.is_delete)!==1&&row.is_admin_restricted!==true).map(row=>({
+  id:Number(row.id),name:String(row.fullname||row.username||`Member ${row.id}`),username:String(row.username||""),email:String(row.email||""),isTestAccount:row.is_test_account===true,
+ })) satisfies WorkspaceRecipient[];
+}
 export async function saveWorkspace(row:Pick<WorkspaceDocument,"id"|"kind"|"payload"|"version"|"archived">,reason:string){const r=await supabase.rpc("admin_workspace_save",{p_id:row.id,p_kind:row.kind,p_payload:row.payload,p_version:row.version,p_archived:row.archived,p_reason:reason});if(r.error)throw r.error;return r.data as WorkspaceDocument;}
 export async function sendWorkspace(row:WorkspaceDocument,reason:string){const r=await supabase.rpc("admin_send_campaign",{p_id:row.id,p_version:row.version,p_reason:reason});if(r.error)throw r.error;return r.data as WorkspaceDocument;}
 export type FeatureGate={key:string;enabled:boolean;updated_at:string};

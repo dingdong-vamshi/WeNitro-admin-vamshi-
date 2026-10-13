@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AdminRecipientPicker } from "@/components/admin/admin-recipient-picker";
+import { parseRecipientIds } from "@/lib/workspace-validation";
 
 export function LoginAnnouncements() {
   const [title, setTitle] = useState("");
@@ -16,6 +18,10 @@ export function LoginAnnouncements() {
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
   const lock = useRef(false);
+  const parsedRecipients = parseRecipientIds(recipients);
+  const duration = Number(days);
+  const validationIssue = !title.trim() ? "Enter a title." : !body.trim() ? "Enter a message." : parsedRecipients.invalid.length ? "Recipient IDs must be positive whole numbers." :
+    !Number.isInteger(duration) || duration < 1 || duration > 90 ? "Choose a duration from 1 to 90 days." : "";
   const query = useQuery({ queryKey: ["login-announcements"], queryFn: async () => {
     const result = await supabase.from("tbl_login_announcements").select("id,title,active,expires_at,target_user_ids").order("id", { ascending: false }).limit(50);
     if (result.error) throw result.error;
@@ -25,10 +31,8 @@ export function LoginAnnouncements() {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError(""); setSaved(false);
     try {
-      const ids = recipients.trim() ? recipients.split(",").map(v => Number(v.trim())) : null;
-      const duration = Number(days);
-      if (ids?.some(id => !Number.isSafeInteger(id) || id < 1)) throw Error("Recipient IDs must be positive numbers separated by commas.");
-      if (!Number.isInteger(duration) || duration < 1 || duration > 90) throw Error("Choose 1–90 days.");
+      if (validationIssue) throw Error(validationIssue);
+      const ids = parsedRecipients.ids.length ? parsedRecipients.ids : null;
       const result = await supabase.rpc("admin_create_login_announcement", {
         p_title: title.trim(), p_body: body.trim(), p_starts_at: new Date().toISOString(),
         p_expires_at: new Date(Date.now() + duration * 86400000).toISOString(), p_target_user_ids: ids,
@@ -52,10 +56,11 @@ export function LoginAnnouncements() {
     <CardContent className="space-y-4">
       <label className="block text-sm">Title<Input aria-label="Announcement title" maxLength={120} value={title} onChange={e => setTitle(e.target.value)} /></label>
       <label className="block text-sm">Message<textarea aria-label="Announcement message" maxLength={2000} value={body} onChange={e => setBody(e.target.value)} className="mt-1 min-h-24 w-full rounded-md border bg-background p-3" /></label>
-      <label className="block text-sm">Recipient user IDs (blank = all users)<Input aria-label="Announcement recipient IDs" placeholder="91,92 for QA only" value={recipients} onChange={e => setRecipients(e.target.value)} /></label>
+      <AdminRecipientPicker value={recipients} onChange={setRecipients} disabled={busy} allowAll />
       <label className="block text-sm">Expires after days<Input aria-label="Announcement duration" type="number" min={1} max={90} value={days} onChange={e => setDays(e.target.value)} /></label>
       <p className="text-sm text-muted-foreground">Audience: {recipients.trim() ? `user IDs ${recipients}` : "ALL USERS"}. Publishing makes this visible to that audience.</p>
-      <Button disabled={busy || !title.trim() || !body.trim()} onClick={() => void create()}>{busy ? "Saving…" : "Publish login announcement"}</Button>
+      {!error && validationIssue && <p role="status" className="text-sm text-muted-foreground">{validationIssue}</p>}
+      <Button disabled={busy || !!validationIssue} onClick={() => void create()}>{busy ? "Saving…" : "Publish login announcement"}</Button>
       {saved && <p role="status">Announcement published.</p>}{error && <p role="alert" className="text-destructive">{error}</p>}
       {query.isLoading ? <p>Loading announcements…</p> : query.error ? <div role="alert">Could not load announcements. <Button variant="outline" onClick={() => void query.refetch()}>Retry</Button></div> : !query.data?.length ? <p>No announcements yet.</p> : <ul className="space-y-3">{query.data.map(row => <li key={row.id} className="flex items-center justify-between gap-4 rounded border p-3"><div><p>{row.title}</p><p className="text-xs text-muted-foreground">{row.target_user_ids ? `Users ${row.target_user_ids.join(", ")}` : "All users"} · {row.active && Date.parse(row.expires_at) > Date.now() ? "Active" : "Inactive"}</p></div>{row.active && <Button variant="outline" disabled={busy} onClick={() => void disable(row.id)}>Disable</Button>}</li>)}</ul>}
     </CardContent></Card>;
