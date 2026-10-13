@@ -480,6 +480,8 @@ export async function getReportedEvents(params?: { search?: string; severity?: s
 export async function getChatViolations(params?: { search?: string; severity?: string; page?: number; pageSize?: number }): Promise<{ rows: A.ChatViolation[]; total: number }> { void params; return { rows: [], total: 0 }; }
 export type ContentModerationQueueItem = {
   id: string;
+  story_id?: number;
+  creator_name?: string;
   scope: string;
   status: "pending" | "review";
   created_at: string;
@@ -502,6 +504,11 @@ export async function getImageModerationQueue(params?: { status?: string }): Pro
   const result = await supabase.rpc("admin_list_content_moderation");
   check("Unable to load the automated moderation queue", result.error);
   const rows = (result.data ?? []) as ContentModerationQueueItem[];
+  if (rows.some(row => row.scope === 'story')) {
+    const stories = await getStories();
+    const byRequest = new Map(stories.filter(row => row.moderation_request_id).map(row => [row.moderation_request_id, row]));
+    for (const row of rows) { const story = byRequest.get(row.id); if (story) { row.story_id = story.id; row.creator_name = story.ownerName; } }
+  }
   return params?.status && params.status !== "all" ? rows.filter((row) => row.status === params.status) : rows;
 }
 export async function reviewContentModeration(id: string, decision: "approve" | "reject", reason: string) {
@@ -703,7 +710,7 @@ export async function getAdminSecurityOverview(): Promise<A.AdminSecurityOvervie
 // keeps future screens on the same canonical legacy schema rather than reintroducing fixtures.
 export async function getCommunities() { configured(); const [rooms, members, userRows] = await Promise.all([supabase.from("tbl_chat_rooms").select("id,title,tagline,description,visibility,created_at,created_by,image_url,cover_url,admin_moderation_status,admin_moderation_reason,admin_moderated_at").eq("room_type", "community").order("created_at", { ascending: false }), supabase.from("tbl_chat_participants").select("room_id"), users()]); check("Unable to load communities", rooms.error); check("Unable to load community members", members.error); const counts = new Map<number, number>(); (members.data ?? []).forEach((row) => { if (row.room_id !== null) counts.set(Number(row.room_id), (counts.get(Number(row.room_id)) ?? 0) + 1); }); const owners = new Map(userRows.map(row => [row.id, row.fullname || row.username])); return (rooms.data ?? []).map((row) => ({ ...row, id: String(row.id), created_by: row.created_by === null ? null : String(row.created_by), ownerName: row.created_by === null ? "Unknown creator" : owners.get(Number(row.created_by)) || `User ${row.created_by}`, memberCount: counts.get(Number(row.id)) ?? 0 })); }
 export async function getVibes() { configured(); const [result, userRows] = await Promise.all([supabase.from("tbl_activity_vibes").select("id,user_id,event_id,caption,media_type,media_url,likes_count,visibility,created_at,admin_moderation_status,admin_moderation_reason,admin_moderated_at").order("created_at", { ascending: false }), users()]); check("Unable to load vibes", result.error); const owners = new Map(userRows.map(row => [row.id, row.fullname || row.username])); return (result.data ?? []).map(row => ({...row, ownerName: row.user_id === null ? "Unknown creator" : owners.get(Number(row.user_id)) || `User ${row.user_id}`})); }
-export async function getStories() { configured(); const [result, userRows] = await Promise.all([supabase.from("tbl_stories").select("id,user_id,caption,media_type,media_url,created_at,expires_at,deleted_at,admin_moderation_status,admin_moderation_reason,admin_moderated_at").order("created_at", { ascending: false }), users()]); check("Unable to load stories", result.error); const owners = new Map(userRows.map(row => [row.id, row.fullname || row.username])); return (result.data ?? []).map(row => ({...row, ownerName: row.user_id === null ? "Unknown creator" : owners.get(Number(row.user_id)) || `User ${row.user_id}`})); }
+export async function getStories() { configured(); const [result, userRows] = await Promise.all([supabase.from("tbl_stories").select("id,user_id,caption,media_type,media_url,created_at,expires_at,deleted_at,admin_moderation_status,admin_moderation_reason,admin_moderated_at,moderation_request_id").order("created_at", { ascending: false }), users()]); check("Unable to load stories", result.error); const owners = new Map(userRows.map(row => [row.id, row.fullname || row.username])); return (result.data ?? []).map(row => ({...row, ownerName: row.user_id === null ? "Unknown creator" : owners.get(Number(row.user_id)) || `User ${row.user_id}`})); }
 export async function moderateContent(type: "community" | "vibe" | "story", id: string | number, action: "hide" | "suspend" | "remove" | "restore", reason: string) { configured(); const result = await supabase.rpc("admin_moderate_content", { p_type: type, p_id: Number(id), p_action: action, p_reason: reason }); check(`Unable to moderate ${type}`, result.error); return result.data as {type:string;id:number;action:string;moderation_status:string;changed:boolean}; }
 export async function getContentPreview(type: "community" | "vibe" | "story", path: string | null) { configured(); if (!path) throw new Error("No media is attached."); if (/^https?:\/\//i.test(path)) return path; const bucket = type === "community" ? "communities" : type === "vibe" ? "vibes" : "stories"; const result = await supabase.storage.from(bucket).createSignedUrl(path.replace(/^\/+/, ""), 300); check("Unable to open content media", result.error); if (!result.data?.signedUrl) throw new Error("Content preview is unavailable."); return result.data.signedUrl; }
 export type VerificationSubmission = {
